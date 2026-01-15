@@ -96,8 +96,9 @@
       ${pkgs.curl}/bin/curl -s --max-time 5 http://captive.apple.com/hotspot-detect.html >/dev/null 2>&1
     }
 
-    # Wait for NetworkManager
-    sleep 10
+    # Wait for NetworkManager to finish starting
+    log "Waiting for NetworkManager startup..."
+    ${pkgs.networkmanager}/bin/nm-online -s -q -t 30 || true
 
     while true; do
       if has_internet; then
