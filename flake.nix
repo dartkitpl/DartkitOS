@@ -44,6 +44,7 @@
 
         # Our custom modules
         ./modules/wifi-connect.nix
+        ./modules/autodarts.nix
         ./configuration.nix
 
         # ============================================================

@@ -90,8 +90,8 @@
     # Basic firewall
     firewall = {
       enable = true;
-      # Allow captive portal HTTP and DNS during setup
-      allowedTCPPorts = [80 53];
+      # Allow captive portal HTTP, DNS, autodarts setup
+      allowedTCPPorts = [80 53 3180 3181];
       allowedUDPPorts = [53 67]; # DNS and DHCP for AP mode
     };
   };
@@ -106,6 +106,13 @@
     portalPort = 80;
     wifiInterface = "wlan0";
     activityTimeout = 0; # No timeout - wait forever for user
+  };
+
+  # ============================================================
+  # Enable autodarts board detection service
+  # ============================================================
+  services.autodarts = {
+    enable = true;
   };
 
   # ============================================================
