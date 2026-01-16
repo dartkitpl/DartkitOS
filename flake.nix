@@ -91,13 +91,13 @@
     # Build the SD image with: nix build .#sdImage
     packages.x86_64-linux = {
       sdImage = self.nixosConfigurations.dartkitos.config.system.build.sdImage;
-      default = self.packages.x86_64-linux.sdImage;
+      default = self.nixosConfigurations.dartkitos.config.system.build.toplevel;
     };
 
     # Also expose for aarch64-linux builds (if building natively on Pi)
     packages.aarch64-linux = {
       sdImage = self.nixosConfigurations.dartkitos.config.system.build.sdImage;
-      default = self.packages.aarch64-linux.sdImage;
+      default = self.nixosConfigurations.dartkitos.config.system.build.toplevel;
     };
   };
 }
