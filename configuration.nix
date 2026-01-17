@@ -246,23 +246,9 @@
     "vm.vfs_cache_pressure" = 50;
   };
 
-  # ============================================================
-  # Enable hardware watchdog
-  # ============================================================
-  systemd.services.watchdog = {
-    description = "Hardware Watchdog";
-    after = ["multi-user.target"];
-    wantedBy = ["multi-user.target"];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${pkgs.systemd}/bin/systemctl start systemd-watchdog";
-    };
-  };
-
   # Enable systemd's built-in watchdog
   systemd.watchdog = {
-    runtimeTime = "30s";
-    rebootTime = "10m";
+    runtimeTime = "30s";  # Reboot if systemd hangs for 30s
+    rebootTime = "3m";    # Force reset if reboot takes more than 3 minutes
   };
 }
