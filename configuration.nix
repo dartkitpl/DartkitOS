@@ -222,6 +222,7 @@
       experimental-features = ["nix-command" "flakes"];
       # Optimize store automatically
       auto-optimise-store = true;
+      trusted-users = ["root" "@wheel"];
     };
 
     # Garbage collection to save space
