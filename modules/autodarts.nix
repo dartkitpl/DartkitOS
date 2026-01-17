@@ -17,58 +17,9 @@
 }: let
   cfg = config.services.autodarts;
 
-  # Architecture mapping for autodarts downloads
-  archMap = {
-    "x86_64-linux" = "amd64";
-    "aarch64-linux" = "arm64";
-    "armv7l-linux" = "armv7l";
-  };
-
-  arch = archMap.${pkgs.system} or (throw "Unsupported architecture: ${pkgs.system}");
-
-  # ============================================================
-  # autodarts package
-  # ============================================================
-  # Fetch the autodarts binary from the official release server.
-  # The package downloads and extracts the tarball for the target platform.
-  #
-  # NOTE: To update the version, change the version and sha256 below.
-  # To get the hash, run:
-  #   nix-prefetch-url https://get.autodarts.io/detection/latest/linux/arm64/autodarts<version>.linux-arm64.tar.gz
-  # Then convert to SRI format:
-  #   nix hash to-sri --type sha256 <hash>
-  autodarts = pkgs.stdenv.mkDerivation rec {
-    pname = "autodarts";
-    version = "1.0.4";
-
-    src = pkgs.fetchurl {
-      url = "https://get.autodarts.io/detection/${cfg.channel}/linux/${arch}/autodarts${version}.linux-${arch}.tar.gz";
-      sha256 = "sha256-NbXinthq5ySidy7vB2nmSsX7FzU05tvBxMi8NZfaqCs=";
-    };
-
-    nativeBuildInputs = [pkgs.autoPatchelfHook];
-    buildInputs = [
-      pkgs.glibc
-      pkgs.stdenv.cc.cc.lib
-    ];
-
-    sourceRoot = ".";
-
-    unpackPhase = ''
-      tar -xzf $src
-    '';
-
-    installPhase = ''
-      mkdir -p $out/bin
-      cp autodarts $out/bin/
-      chmod +x $out/bin/autodarts
-    '';
-
-    meta = {
-      description = "Autodarts board detection service";
-      homepage = "https://autodarts.io";
-      platforms = ["x86_64-linux" "aarch64-linux" "armv7l-linux"];
-    };
+  # Import autodarts package from pkgs/, passing the channel option
+  autodarts = pkgs.callPackage ../pkgs/autodarts.nix {
+    channel = cfg.channel;
   };
 in {
   # ============================================================
