@@ -66,5 +66,11 @@
       sdImage = self.nixosConfigurations.dartkitos.config.system.build.sdImage;
       default = self.nixosConfigurations.dartkitos.config.system.build.toplevel;
     };
+
+    # Native builds on Apple Silicon Macs (M1/M2/M3/M4)
+    packages.aarch64-darwin = {
+      sdImage = self.nixosConfigurations.dartkitos.config.system.build.sdImage;
+      default = self.nixosConfigurations.dartkitos.config.system.build.toplevel;
+    };
   };
 }
