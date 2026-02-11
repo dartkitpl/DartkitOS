@@ -15,8 +15,7 @@
   autoPatchelfHook,
   glibc,
   channel ? "latest",
-}:
-let
+}: let
   # Architecture mapping for autodarts downloads
   archMap = {
     "x86_64-linux" = "amd64";
@@ -26,36 +25,36 @@ let
 
   arch = archMap.${stdenv.hostPlatform.system} or (throw "Unsupported architecture: ${stdenv.hostPlatform.system}");
 in
-stdenv.mkDerivation rec {
-  pname = "autodarts";
-  version = "1.0.4";
+  stdenv.mkDerivation rec {
+    pname = "autodarts";
+    version = "1.0.4";
 
-  src = fetchurl {
-    url = "https://get.autodarts.io/detection/${channel}/linux/${arch}/autodarts${version}.linux-${arch}.tar.gz";
-    sha256 = "sha256-NbXinthq5ySidy7vB2nmSsX7FzU05tvBxMi8NZfaqCs=";
-  };
+    src = fetchurl {
+      url = "https://get.autodarts.io/detection/${channel}/linux/${arch}/autodarts${version}.linux-${arch}.tar.gz";
+      sha256 = "sha256-NbXinthq5ySidy7vB2nmSsX7FzU05tvBxMi8NZfaqCs=";
+    };
 
-  nativeBuildInputs = [autoPatchelfHook];
-  buildInputs = [
-    glibc
-    stdenv.cc.cc.lib
-  ];
+    nativeBuildInputs = [autoPatchelfHook];
+    buildInputs = [
+      glibc
+      stdenv.cc.cc.lib
+    ];
 
-  sourceRoot = ".";
+    sourceRoot = ".";
 
-  unpackPhase = ''
-    tar -xzf $src
-  '';
+    unpackPhase = ''
+      tar -xzf $src
+    '';
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp autodarts $out/bin/
-    chmod +x $out/bin/autodarts
-  '';
+    installPhase = ''
+      mkdir -p $out/bin
+      cp autodarts $out/bin/
+      chmod +x $out/bin/autodarts
+    '';
 
-  meta = {
-    description = "Autodarts board detection service";
-    homepage = "https://autodarts.io";
-    platforms = ["x86_64-linux" "aarch64-linux" "armv7l-linux"];
-  };
-}
+    meta = {
+      description = "Autodarts board detection service";
+      homepage = "https://autodarts.io";
+      platforms = ["x86_64-linux" "aarch64-linux" "armv7l-linux"];
+    };
+  }
