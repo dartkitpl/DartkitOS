@@ -147,8 +147,8 @@
     # Journal configuration for SD card longevity
     journald = {
       extraConfig = ''
+        Storage=persistent
         # Reduce writes to SD card
-        Storage=volatile
         RuntimeMaxUse=64M
         RuntimeMaxFileSize=8M
       '';
