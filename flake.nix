@@ -2,10 +2,7 @@
   description = "DartkitOS - NixOS-based Raspberry Pi 4 SD image with wifi-connect captive portal";
 
   inputs = {
-    # Use a stable NixOS release for production reliability
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-
-    # Provides additional Raspberry Pi hardware support
     nixos-hardware.url = "github:NixOS/nixos-hardware";
   };
 

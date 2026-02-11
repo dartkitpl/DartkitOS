@@ -217,10 +217,8 @@
   # Nix configuration
   # ============================================================
   nix = {
-    # Enable flakes
     settings = {
       experimental-features = ["nix-command" "flakes"];
-      # Optimize store automatically
       auto-optimise-store = true;
       trusted-users = ["root" "@wheel"];
 
@@ -279,7 +277,7 @@
 
   # Enable systemd's built-in watchdog
   systemd.watchdog = {
-    runtimeTime = "30s";  # Reboot if systemd hangs for 30s
-    rebootTime = "3m";    # Force reset if reboot takes more than 3 minutes
+    runtimeTime = "30s"; # Reboot if systemd hangs for 30s
+    rebootTime = "3m"; # Force reset if reboot takes more than 3 minutes
   };
 }
