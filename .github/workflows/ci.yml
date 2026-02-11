@@ -1,0 +1,58 @@
+# ============================================================
+# PR Validation
+# ============================================================
+# Runs on every pull request targeting main. Must pass before
+# the PR can be merged. Branch protection rules on main require
+# this workflow's check to succeed.
+#
+# What it checks:
+#   - nix flake check (all systems) — evaluates all outputs,
+#     runs any flake checks, and validates the configuration
+# ============================================================
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Flake check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for aarch64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            extra-platforms = aarch64-linux
+            extra-substituters = https://cache.dartkit.pl/dartkitos
+            extra-trusted-substituters = https://cache.dartkit.pl/dartkitos
+            extra-trusted-public-keys = dartkitos:qbEVIC7PCAV2tfg+nUbUT9LqK30r6sdh9vOOcoiag40=
+
+      - name: Enable Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Register binfmt interpreters
+        run: |
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+      - name: nix flake check
+        run: |
+          nix flake check --all-systems --print-build-logs --accept-flake-config
