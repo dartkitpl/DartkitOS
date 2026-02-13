@@ -1,0 +1,131 @@
+# ============================================================
+# DartkitOS Release Pipeline
+# ============================================================
+# Manually triggered. Builds the full NixOS closure for
+# aarch64-linux using QEMU emulation, pushes every store path
+# to the Attic binary cache, and publishes a GitHub Release.
+#
+# Version tags are created automatically by a semantic-versioning
+# tagger (conventional commits). This workflow is only run when
+# you explicitly decide to cut a release for a given tag.
+#
+# Prerequisites (repository secrets):
+#   ATTIC_TOKEN   — Attic authentication token for cache.dartkit.pl
+# ============================================================
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing version tag to release (e.g. v1.2.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.tag }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build & push to cache
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag }}
+
+      # ── QEMU for aarch64 emulation ───────────────────────────
+      - name: Set up QEMU for aarch64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      # ── Install Nix ──────────────────────────────────────────
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            extra-platforms = aarch64-linux
+            extra-substituters = https://cache.dartkit.pl/dartkitos
+            extra-trusted-substituters = https://cache.dartkit.pl/dartkitos
+            extra-trusted-public-keys = dartkitos:qbEVIC7PCAV2tfg+nUbUT9LqK30r6sdh9vOOcoiag40=
+
+      # ── Enable Nix cache (GitHub Actions layer) ──────────────
+      - name: Enable Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      # ── Register binfmt for aarch64 ──────────────────────────
+      - name: Register binfmt interpreters
+        run: |
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+      # ── Build the NixOS system closure ───────────────────────
+      - name: Build DartkitOS closure
+        run: |
+          nix build .#default \
+            --print-build-logs \
+            --accept-flake-config \
+            --option system aarch64-linux \
+            --extra-platforms aarch64-linux
+
+      # ── Install Attic client ─────────────────────────────────
+      - name: Install Attic client
+        run: |
+          nix profile install github:zhaofengli/attic#attic-client
+
+      # ── Push closure to Attic ────────────────────────────────
+      - name: Configure Attic
+        run: |
+          attic login dartkit https://cache.dartkit.pl "${{ secrets.ATTIC_TOKEN }}"
+
+      - name: Push closure to cache
+        run: |
+          # Push all runtime dependencies of the system closure
+          attic push dartkitos ./result -j 4
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+
+      # ── Derive release info ──────────────────────────────────
+      - name: Get release metadata
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+          # Closure size info for release notes
+          CLOSURE_SIZE=$(nix path-info -S ./result 2>/dev/null | awk '{print $2}' || echo "unknown")
+          echo "closure_size=$CLOSURE_SIZE" >> "$GITHUB_OUTPUT"
+
+      # ── Create GitHub Release ────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: "DartkitOS ${{ steps.meta.outputs.tag }}"
+          body: |
+            ## DartkitOS ${{ steps.meta.outputs.tag }}
+
+            **Released:** ${{ steps.meta.outputs.date }}
+            **Closure size:** ${{ steps.meta.outputs.closure_size }} bytes
+
+            ### What's included
+            - Full NixOS system closure for Raspberry Pi 4 (aarch64-linux)
+            - All store paths pushed to `cache.dartkit.pl/dartkitos`
+
+            ### For consumers
+            Consumers with OTA updates enabled will pick up this release
+            automatically within their configured check interval (default: 15 min).
+
+            To update manually:
+            ```
+            sudo dartkitos-update
+            ```
+          draft: false
+          prerelease: ${{ contains(steps.meta.outputs.tag, 'rc') || contains(steps.meta.outputs.tag, 'beta') || contains(steps.meta.outputs.tag, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
