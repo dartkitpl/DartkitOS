@@ -14,14 +14,32 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin"];
 
+    # Derive version from the flake's source info.
+    # - self.rev: full commit SHA from a clean git checkout or github: flake ref
+    # - self.dirtyRev: commit SHA + "-dirty" when there are uncommitted changes
+    # - "non-git": fallback when built from tarball/zip without .git directory
+    #
+    # The OTA update script compares this against the commit SHA
+    # associated with the latest GitHub Release tag.
+    version =
+      if self ? rev
+      then self.rev
+      else if self ? dirtyRev
+      then self.dirtyRev
+      else "non-git";
+
     nixosConfig = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
-      specialArgs = {inherit nixos-hardware;};
+      specialArgs = {
+        inherit nixos-hardware;
+        dartkitosVersion = version;
+      };
       modules = [
         nixos-hardware.nixosModules.raspberry-pi-4
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ./modules/wifi-connect.nix
         ./modules/autodarts.nix
+        ./modules/ota-update.nix
         ./configuration.nix
         ./sd-image.nix
       ];

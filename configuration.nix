@@ -12,6 +12,7 @@
 {
   lib,
   pkgs,
+  dartkitosVersion ? "unknown",
   ...
 }: {
   # ============================================================
@@ -113,6 +114,17 @@
   # ============================================================
   services.autodarts = {
     enable = true;
+  };
+
+  # ============================================================
+  # OTA updates from GitHub Releases + Attic binary cache
+  # ============================================================
+  services.dartkitos-update = {
+    enable = true;
+    version = dartkitosVersion;
+    githubRepo = "dartkitpl/DartkitOS"; # default
+    interval = "*:0/15"; # every 15 min (default)
+    randomDelaySec = 120; # stagger fleet (default)
   };
 
   # ============================================================
