@@ -26,6 +26,9 @@ concurrency:
   group: release-${{ github.event.inputs.tag }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   # ── Job 1: Fast validation (no QEMU, no aarch64) ────────────
   # Evaluates the flake and checks for configuration errors.
@@ -48,9 +51,15 @@ jobs:
       - name: Verify required secrets
         env:
           ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
         run: |
           if [[ -z "$ATTIC_TOKEN" ]]; then
             echo "::error::ATTIC_TOKEN secret is not set. Go to Settings → Secrets → Actions to add it."
+            exit 1
+          fi
+          if [[ -z "$TS_OAUTH_CLIENT_ID" ]] || [[ -z "$TS_OAUTH_SECRET" ]]; then
+            echo "::error::Tailscale OAuth secrets not set. Add TS_OAUTH_CLIENT_ID and TS_OAUTH_SECRET."
             exit 1
           fi
           echo "All required secrets are configured."
@@ -97,6 +106,26 @@ jobs:
         run: |
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
+      # ── Connect to Tailscale ─────────────────────────────────
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          use-cache: 'true'
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      # ── Install Attic client ─────────────────────────────────
+      - name: Install Attic client
+        run: |
+          nix profile add github:NixOS/nixpkgs/nixos-25.11#attic-client
+
+      # ── Configure Attic ──────────────────────────────────────
+      - name: Configure Attic
+        run: |
+          attic login dartkit http://attic.deer-bangus.ts.net:8080 "${{ secrets.ATTIC_TOKEN }}"
+          attic cache info dartkitos
+
       # ── Build the NixOS system closure ───────────────────────
       - name: Build DartkitOS closure
         run: |
@@ -113,16 +142,7 @@ jobs:
           echo "$STORE_PATH" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      # ── Install Attic client ─────────────────────────────────
-      - name: Install Attic client
-        run: |
-          nix profile add github:NixOS/nixpkgs/nixos-25.11#attic-client
-
       # ── Push closure to Attic ────────────────────────────────
-      - name: Configure Attic
-        run: |
-          attic login dartkit https://cache.dartkit.pl "${{ secrets.ATTIC_TOKEN }}"
-
       - name: Push closure to cache
         run: |
           for i in {1..5}; do
