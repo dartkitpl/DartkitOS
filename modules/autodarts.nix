@@ -103,6 +103,8 @@ in {
         RestartSec = "1s";
         KillSignal = "SIGINT";
 
+        LogLevelMax = "warning";
+
         # Security hardening
         NoNewPrivileges = true;
         ProtectSystem = "strict";
