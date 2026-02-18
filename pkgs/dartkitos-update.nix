@@ -76,6 +76,19 @@ writeShellApplication {
     # ── Ensure state directory exists ────────────────────────────
     mkdir -p "''${STATE_DIR}"
 
+    # ── Check network connectivity first ─────────────────────────
+    # Critical: exit 0 when offline so systemd doesn't restart-loop
+    check_online() {
+      # Try to reach GitHub API (or any reliable endpoint)
+      curl -sf --max-time 10 --head "https://api.github.com" >/dev/null 2>&1
+    }
+
+    if ! check_online; then
+      info "Network offline or GitHub unreachable — skipping update check."
+      info "Will retry on next scheduled timer tick."
+      exit 0  # SUCCESS — prevents systemd restart storm
+    fi
+
     # ── Read current version (commit SHA) ────────────────────────
     if [[ -f "''${VERSION_FILE}" ]]; then
       CURRENT_REV="$(tr -d '[:space:]' < "''${VERSION_FILE}")"
@@ -86,10 +99,12 @@ writeShellApplication {
 
     # ── Check GitHub for latest release ──────────────────────────
     info "Checking GitHub releases for ''${GITHUB_REPO}..."
-    RELEASE_JSON="$(curl -sf --max-time 30 \
+    if ! RELEASE_JSON="$(curl -sf --max-time 30 \
       -H "Accept: application/vnd.github+json" \
-      "https://api.github.com/repos/''${GITHUB_REPO}/releases/latest")" \
-      || die "Failed to fetch latest release from GitHub"
+      "https://api.github.com/repos/''${GITHUB_REPO}/releases/latest")"; then
+      warn "Failed to fetch latest release from GitHub — will retry next tick."
+      exit 0  # Graceful exit — let the timer handle retry
+    fi
 
     LATEST_TAG="$(echo "''${RELEASE_JSON}" | jq -r '.tag_name')"
     RELEASE_NAME="$(echo "''${RELEASE_JSON}" | jq -r '.name // .tag_name')"
@@ -110,20 +125,24 @@ writeShellApplication {
     # ── Resolve the tag to a commit SHA ───────────────────────────
     # The GitHub API for releases doesn't directly give us the commit
     # SHA, but the git ref API does.
-    TAG_SHA_JSON="$(curl -sf --max-time 15 \
+    if ! TAG_SHA_JSON="$(curl -sf --max-time 15 \
       -H "Accept: application/vnd.github+json" \
-      "https://api.github.com/repos/''${GITHUB_REPO}/git/ref/tags/''${LATEST_TAG}")" \
-      || die "Failed to resolve tag ''${LATEST_TAG} to a commit"
+      "https://api.github.com/repos/''${GITHUB_REPO}/git/ref/tags/''${LATEST_TAG}")"; then
+      warn "Failed to resolve tag ''${LATEST_TAG} to a commit — will retry next tick."
+      exit 0
+    fi
 
     TAG_OBJ_TYPE="$(echo "''${TAG_SHA_JSON}" | jq -r '.object.type')"
     TAG_OBJ_SHA="$(echo "''${TAG_SHA_JSON}" | jq -r '.object.sha')"
 
     # If it's an annotated tag, we need to dereference to the commit
     if [[ "''${TAG_OBJ_TYPE}" == "tag" ]]; then
-      COMMIT_JSON="$(curl -sf --max-time 15 \
+      if ! COMMIT_JSON="$(curl -sf --max-time 15 \
         -H "Accept: application/vnd.github+json" \
-        "https://api.github.com/repos/''${GITHUB_REPO}/git/tags/''${TAG_OBJ_SHA}")" \
-        || die "Failed to dereference annotated tag"
+        "https://api.github.com/repos/''${GITHUB_REPO}/git/tags/''${TAG_OBJ_SHA}")"; then
+        warn "Failed to dereference annotated tag — will retry next tick."
+        exit 0
+      fi
       RELEASE_REV="$(echo "''${COMMIT_JSON}" | jq -r '.object.sha')"
     else
       RELEASE_REV="''${TAG_OBJ_SHA}"
