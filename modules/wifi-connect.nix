@@ -1,18 +1,21 @@
 # ============================================================
 # wifi-connect.nix
 # ============================================================
-# This module implements a captive portal for first-boot Wi-Fi configuration.
+# This module implements a one-time captive portal for first-time Wi-Fi setup.
 #
 # How it works:
-# 1. On boot, if no Wi-Fi is configured, the service starts
+# 1. On first boot (ever), the service starts the captive portal
 # 2. It creates a Wi-Fi access point (AP) named "DartkitOS-Setup"
 # 3. Users connect to this AP and are redirected to a captive portal
 # 4. They select their home Wi-Fi network and enter the password
 # 5. The Pi connects to the configured network
-# 6. The AP is automatically shut down
+# 6. A marker file is created to indicate setup is complete
+# 7. The service never runs again (one-time setup per device lifetime)
 #
 # This uses the Balena wifi-connect tool, which is a Rust-based
 # captive portal solution specifically designed for IoT devices.
+#
+# To re-run first-time setup, delete /var/lib/wifi-connect/setup-complete
 # ============================================================
 {
   config,
@@ -20,54 +23,64 @@
   pkgs,
   ...
 }: let
-  cfg = config.services.wifi-connect;
+  cfg = config.services.wifi-setup;
 
   # Import wifi-connect package from pkgs/
   wifi-connect = pkgs.callPackage ../pkgs/wifi-connect.nix {};
 
+  # Marker file location - persists across reboots
+  setupCompleteMarker = "/var/lib/wifi-connect/setup-complete";
+
   # ============================================================
-  # Helper script to manage wifi-connect lifecycle
+  # Wi-Fi setup script
   # ============================================================
-  # Simple monitor: check connectivity every 30s, start AP if offline.
-  wifiConnectScript = pkgs.writeShellScript "wifi-connect-wrapper" ''
-    set -u
+  # Runs ONCE per device lifetime. Creates marker file on success.
+  wifiSetupScript = pkgs.writeShellScript "wifi-setup" ''
+    set -eu
 
     AP_SSID="${cfg.apSsid}"
     AP_PASSPHRASE="${cfg.apPassphrase}"
     PORTAL_PORT="${toString cfg.portalPort}"
     WIFI_INTERFACE="${cfg.wifiInterface}"
+    MARKER_FILE="${setupCompleteMarker}"
 
     log() {
-      echo "[wifi-connect] $1"
+      echo "[wifi-setup] $1"
     }
 
-    has_internet() {
-      ${pkgs.curl}/bin/curl -s --max-time 5 http://captive.apple.com/hotspot-detect.html >/dev/null 2>&1
-    }
+    # Check if setup was already completed
+    if [ -f "$MARKER_FILE" ]; then
+      log "Setup already completed. Exiting."
+      exit 0
+    fi
+
+    log "Wi-Fi setup starting..."
+
+    # Ensure state directory exists
+    mkdir -p "$(dirname "$MARKER_FILE")"
 
     # Wait for NetworkManager to finish starting
     log "Waiting for NetworkManager startup..."
     ${pkgs.networkmanager}/bin/nm-online -s -q -t 30 || true
 
-    while true; do
-      if ! has_internet; then
-        log "Offline - starting captive portal"
-        PATH="${pkgs.dnsmasq}/bin:$PATH" ${wifi-connect}/bin/wifi-connect \
-          -s "$AP_SSID" \
-          -p "$AP_PASSPHRASE" \
-          -o "$PORTAL_PORT" \
-          -i "$WIFI_INTERFACE" \
-          -u ${wifi-connect}/share/wifi-connect/ui || true
-        log "Captive portal exited"
-      fi
-      sleep 30
-    done
+    log "Starting captive portal for Wi-Fi configuration"
+    PATH="${pkgs.dnsmasq}/bin:$PATH" ${wifi-connect}/bin/wifi-connect \
+      -s "$AP_SSID" \
+      -p "$AP_PASSPHRASE" \
+      -o "$PORTAL_PORT" \
+      -i "$WIFI_INTERFACE" \
+      -u ${wifi-connect}/share/wifi-connect/ui
+
+    # wifi-connect exits with 0 when user successfully configures Wi-Fi
+    log "Wi-Fi configured successfully. Marking setup as complete."
+    echo "Setup completed on $(date -Iseconds)" >> "$MARKER_FILE"
+    log "Wi-Fi setup finished."
   '';
 in {
   # ============================================================
   # Module options
   # ============================================================
-  options.services.wifi-connect = {
+  options.services.wifi-setup = {
     enable = lib.mkEnableOption "wifi-connect captive portal for first-boot Wi-Fi setup";
 
     apSsid = lib.mkOption {
@@ -113,17 +126,13 @@ in {
     ];
 
     # ============================================================
-    # Systemd service for wifi-connect
+    # Systemd service for Wi-Fi setup
     # ============================================================
-    systemd.services.wifi-connect = {
-      description = "WiFi Connect - Captive Portal for Wi-Fi Configuration";
+    systemd.services.wifi-setup = {
+      description = "Wi-Fi Setup - Captive Portal";
       documentation = ["https://github.com/balena-os/wifi-connect"];
 
       # Start after NetworkManager is ready
-      # We DON'T wait for network-online.target because on first boot
-      # with no saved networks, that target might never be reached.
-      # Instead, we just wait for NetworkManager to start, then our
-      # script will monitor and start the AP if needed.
       after = [
         "NetworkManager.service"
       ];
@@ -131,17 +140,18 @@ in {
         "NetworkManager.service"
       ];
 
-      # Continuously run and monitor Wi-Fi connectivity
+      # One-shot service - runs once and exits
       serviceConfig = {
-        Type = "simple";
-        ExecStart = wifiConnectScript;
+        Type = "oneshot";
+        ExecStart = wifiSetupScript;
         User = "root";
+        RemainAfterExit = false;
 
-        # Always restart to keep the monitor running even if it exits cleanly
-        Restart = "always";
-        RestartSec = "5s";
+        # State directory for marker file
+        StateDirectory = "wifi-connect";
       };
 
+      # Only run on boot, but the script itself checks the marker file
       wantedBy = ["multi-user.target"];
     };
 

@@ -98,9 +98,9 @@
   };
 
   # ============================================================
-  # Enable wifi-connect captive portal
+  # Enable wifi-setup captive portal
   # ============================================================
-  services.wifi-connect = {
+  services.wifi-setup = {
     enable = true;
     apSsid = "DartkitOS-Setup";
     apPassphrase = "dartkitos"; # Change this for production!
