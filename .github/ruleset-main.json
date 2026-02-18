@@ -1,14 +1,17 @@
 {
-  "name": "Protect main",
+  "name": "Main PR-only",
   "target": "branch",
+  "source_type": "Repository",
+  "source": "dartkitpl/DartkitOS",
   "enforcement": "active",
   "conditions": {
     "ref_name": {
-      "include": ["refs/heads/main"],
-      "exclude": []
+      "exclude": [],
+      "include": [
+        "refs/heads/main"
+      ]
     }
   },
-  "bypass_actors": [],
   "rules": [
     {
       "type": "deletion"
@@ -17,33 +20,38 @@
       "type": "non_fast_forward"
     },
     {
-      "type": "creation"
-    },
-    {
-      "type": "required_linear_history"
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "Flake check",
+            "integration_id": 15368
+          }
+        ]
+      }
     },
     {
       "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 1,
         "dismiss_stale_reviews_on_push": true,
+        "required_reviewers": [],
         "require_code_owner_review": false,
         "require_last_push_approval": false,
-        "required_review_thread_resolution": true
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": [
+          "rebase"
+        ]
       }
     },
     {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_status_checks_policy": true,
-        "do_not_enforce_on_create": false,
-        "required_status_checks": [
-          {
-            "context": "Flake check",
-            "integration_id": null
-          }
-        ]
-      }
+      "type": "required_linear_history"
+    },
+    {
+      "type": "creation"
     }
-  ]
+  ],
+  "bypass_actors": []
 }
