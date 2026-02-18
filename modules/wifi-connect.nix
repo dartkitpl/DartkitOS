@@ -50,9 +50,7 @@
     ${pkgs.networkmanager}/bin/nm-online -s -q -t 30 || true
 
     while true; do
-      if has_internet; then
-        log "Online"
-      else
+      if ! has_internet; then
         log "Offline - starting captive portal"
         PATH="${pkgs.dnsmasq}/bin:$PATH" ${wifi-connect}/bin/wifi-connect \
           -s "$AP_SSID" \
