@@ -153,17 +153,6 @@
     # NTP time sync
     timesyncd.enable = true;
 
-    # mDNS/DNS-SD for local network discovery (dartkitbox.local)
-    avahi = {
-      enable = true;
-      nssmdns4 = true; # Enable .local resolution
-      publish = {
-        enable = true;
-        addresses = true;
-        workstation = true;
-      };
-    };
-
     # Disable unnecessary services for headless operation
     xserver.enable = false;
 
@@ -201,6 +190,23 @@
     after = ["wifi-setup.service"];
     requires = ["wifi-setup.service"];
     # Only start if setup has been completed
+    unitConfig.ConditionPathExists = "/var/lib/wifi-connect/setup-complete";
+  };
+
+  # mDNS/DNS-SD for local network discovery (dartkitbox.local)
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true; # Enable .local resolution
+    publish = {
+      enable = true;
+      addresses = true;
+      workstation = true;
+    };
+  };
+
+  systemd.services.avahi-daemon = {
+    after = ["wifi-setup.service"];
+    requires = ["wifi-setup.service"];
     unitConfig.ConditionPathExists = "/var/lib/wifi-connect/setup-complete";
   };
 
