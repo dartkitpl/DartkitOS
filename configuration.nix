@@ -164,19 +164,6 @@
       };
     };
 
-    # Nginx reverse proxy - proxy port 80 to 3180
-    nginx = {
-      enable = true;
-      recommendedProxySettings = true;
-      virtualHosts."dartkitbox.local" = {
-        listen = [{addr = "0.0.0.0"; port = 80;}];
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:3180";
-          proxyWebsockets = true;
-        };
-      };
-    };
-
     # Disable unnecessary services for headless operation
     xserver.enable = false;
 
@@ -189,6 +176,32 @@
         RuntimeMaxFileSize=8M
       '';
     };
+  };
+
+  # Nginx reverse proxy - proxy port 80 to 3180
+  # Only starts after wifi-setup has completed (marker file exists)
+  services.nginx = {
+    enable = true;
+    recommendedProxySettings = true;
+    virtualHosts."dartkitbox.local" = {
+      listen = [
+        {
+          addr = "0.0.0.0";
+          port = 80;
+        }
+      ];
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:3180";
+        proxyWebsockets = true;
+      };
+    };
+  };
+
+  systemd.services.nginx = {
+    after = ["wifi-setup.service"];
+    requires = ["wifi-setup.service"];
+    # Only start if setup has been completed
+    unitConfig.ConditionPathExists = "/var/lib/wifi-connect/setup-complete";
   };
 
   # ============================================================

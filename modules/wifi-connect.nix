@@ -74,6 +74,7 @@
     # wifi-connect exits with 0 when user successfully configures Wi-Fi
     log "Wi-Fi configured successfully. Marking setup as complete."
     echo "Setup completed on $(date -Iseconds)" >> "$MARKER_FILE"
+
     log "Wi-Fi setup finished."
   '';
 in {
@@ -145,7 +146,8 @@ in {
         Type = "oneshot";
         ExecStart = wifiSetupScript;
         User = "root";
-        RemainAfterExit = false;
+        # RemainAfterExit=true so dependent services can use After=wifi-setup.service
+        RemainAfterExit = true;
 
         # State directory for marker file
         StateDirectory = "wifi-connect";
