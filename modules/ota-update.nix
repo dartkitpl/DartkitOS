@@ -96,6 +96,11 @@ in {
       wants = ["network-online.target"];
       after = ["network-online.target"];
 
+      # ── Restart throttling: prevent restart storms ─────────────
+      # Max 3 failures per hour — stops infinite restart loops
+      startLimitIntervalSec = 3600; # 1 hour
+      startLimitBurst = 3;
+
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${updateScript}/bin/dartkitos-update";
@@ -120,9 +125,9 @@ in {
         # Don't kill the rebuild if it's still running
         KillMode = "process";
 
-        # Retry on transient network failures
+        # Retry on transient network failures (with 10min delay to avoid storms)
         Restart = "on-failure";
-        RestartSec = "60s";
+        RestartSec = "10min";
       };
     };
 
