@@ -47,10 +47,10 @@ First, identify your SD card device:
 lsblk
 ```
 
-Flash the image (replace `/dev/sdX` with your SD card device):
+Decompress and flash the image (replace `/dev/sdX` with your SD card device):
 
 ```bash
-sudo dd if=result/sd-image/*.img of=/dev/sdX bs=4M status=progress
+zstd -d ./result/sd-image/dartkitos-rpi4*.zst -c | sudo dd of=/dev/sdX bs=4M status=progress
 ```
 
 Ensure all data is written:
