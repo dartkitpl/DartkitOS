@@ -20,7 +20,7 @@
   # ============================================================
   system.stateVersion = "24.11";
 
-  networking.hostName = "dartkitos";
+  networking.hostName = "dartkitbox";
 
   # ============================================================
   # Boot configuration for Raspberry Pi 4
@@ -93,7 +93,7 @@
       enable = true;
       # Allow captive portal HTTP, DNS, autodarts setup
       allowedTCPPorts = [80 53 3180 3181];
-      allowedUDPPorts = [53 67]; # DNS and DHCP for AP mode
+      allowedUDPPorts = [53 67 5353]; # DNS, DHCP for AP mode, mDNS
     };
   };
 
@@ -152,6 +152,30 @@
 
     # NTP time sync
     timesyncd.enable = true;
+
+    # mDNS/DNS-SD for local network discovery (dartkitbox.local)
+    avahi = {
+      enable = true;
+      nssmdns4 = true; # Enable .local resolution
+      publish = {
+        enable = true;
+        addresses = true;
+        workstation = true;
+      };
+    };
+
+    # Nginx reverse proxy - proxy port 80 to 3180
+    nginx = {
+      enable = true;
+      recommendedProxySettings = true;
+      virtualHosts."dartkitbox.local" = {
+        listen = [{addr = "0.0.0.0"; port = 80;}];
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:3180";
+          proxyWebsockets = true;
+        };
+      };
+    };
 
     # Disable unnecessary services for headless operation
     xserver.enable = false;
