@@ -43,6 +43,7 @@
   in rec {
     nixosConfigurations = {
       dartkitos = mkNixosConfig ./configurations/prod.nix;
+      dev = mkNixosConfig ./configurations/dev.nix;
     };
 
     # Build from any system — the derivations are aarch64-linux # regardless
