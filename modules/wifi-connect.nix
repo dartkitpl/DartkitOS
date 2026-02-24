@@ -23,7 +23,7 @@
   pkgs,
   ...
 }: let
-  cfg = config.services.wifi-setup;
+  cfg = config.dartkitos.wifi-setup;
 
   # Import wifi-connect package from pkgs/
   wifi-connect = pkgs.callPackage ../pkgs/wifi-connect.nix {};
@@ -81,7 +81,7 @@ in {
   # ============================================================
   # Module options
   # ============================================================
-  options.services.wifi-setup = {
+  options.dartkitos.wifi-setup = {
     enable = lib.mkEnableOption "wifi-connect captive portal for first-boot Wi-Fi setup";
 
     apSsid = lib.mkOption {

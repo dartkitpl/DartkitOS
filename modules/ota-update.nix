@@ -22,14 +22,14 @@
   pkgs,
   ...
 }: let
-  cfg = config.services.dartkitos-update;
+  cfg = config.dartkitos.ota-update;
 
   updateScript = pkgs.callPackage ../pkgs/dartkitos-update.nix {};
 in {
   # ============================================================
   # Module options
   # ============================================================
-  options.services.dartkitos-update = {
+  options.dartkitos.ota-update = {
     enable = lib.mkEnableOption "DartkitOS automatic OTA updates";
 
     githubRepo = lib.mkOption {

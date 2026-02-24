@@ -28,31 +28,29 @@
       then self.dirtyRev
       else "non-git";
 
-    nixosConfig = nixpkgs.lib.nixosSystem {
-      system = "aarch64-linux";
-      specialArgs = {
-        inherit nixos-hardware;
-        dartkitosVersion = version;
+    mkNixosConfig = configuration:
+      nixpkgs.lib.nixosSystem {
+        system = "aarch64-linux";
+        specialArgs = {
+          inherit nixos-hardware nixpkgs;
+          dartkitosVersion = version;
+        };
+        modules = [
+          ./modules
+          configuration
+        ];
       };
-      modules = [
-        nixos-hardware.nixosModules.raspberry-pi-4
-        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-        ./modules/wifi-connect.nix
-        ./modules/autodarts.nix
-        ./modules/ota-update.nix
-        ./configuration.nix
-        ./sd-image.nix
-      ];
+  in rec {
+    nixosConfigurations = {
+      dartkitos = mkNixosConfig ./configurations/prod.nix;
     };
-  in {
-    nixosConfigurations.dartkitos = nixosConfig;
 
     # Build from any system — the derivations are aarch64-linux # regardless
     # x86-linux needs binfmt/qemu
     # aarch64-darwin needs linux builder
     packages = nixpkgs.lib.genAttrs systems (_: {
-      default = nixosConfig.config.system.build.toplevel;
-      sdImage = nixosConfig.config.system.build.sdImage;
+      default = nixosConfigurations.dartkitos.config.system.build.toplevel;
+      sdImage = nixosConfigurations.dartkitos.config.system.build.sdImage;
     });
   };
 }
