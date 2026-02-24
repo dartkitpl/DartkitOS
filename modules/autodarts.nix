@@ -15,7 +15,7 @@
   pkgs,
   ...
 }: let
-  cfg = config.services.autodarts;
+  cfg = config.dartkitos.autodarts;
 
   # Import autodarts package from pkgs/, passing the channel option
   autodarts = pkgs.callPackage ../pkgs/autodarts.nix {
@@ -25,7 +25,7 @@ in {
   # ============================================================
   # Module options
   # ============================================================
-  options.services.autodarts = {
+  options.dartkitos.autodarts = {
     enable = lib.mkEnableOption "autodarts board detection service";
 
     channel = lib.mkOption {
