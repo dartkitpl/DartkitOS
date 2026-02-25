@@ -20,6 +20,7 @@
   config,
   lib,
   pkgs,
+  dartkitosVersion,
   ...
 }: let
   cfg = config.dartkitos.ota-update;
@@ -67,7 +68,7 @@ in {
 
     version = lib.mkOption {
       type = lib.types.str;
-      default = "unknown";
+      default = dartkitosVersion;
       description = ''
         The current version string written to /etc/dartkitos-version.
         This is normally set automatically by the flake via specialArgs.
