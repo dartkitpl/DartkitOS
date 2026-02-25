@@ -1,4 +1,6 @@
 {dartkitosVersion, ...}: {
+  dartkitos.environment = "prod";
+
   # ============================================================
   # Enable wifi-setup captive portal
   # ============================================================

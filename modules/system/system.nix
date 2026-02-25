@@ -83,11 +83,6 @@
       ];
       # Default password - CHANGE THIS or use SSH keys
       initialPassword = "dartkit";
-      openssh.authorizedKeys.keys = [
-        # Add your SSH public key here for secure access
-        # "ssh-ed25519 AAAA... user@host"
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINmku0qaxDIbYb6MlZEMhqRC0KIdeQoNwIQi6/a4z3Fn mimovnik@glados"
-      ];
     };
   };
 
