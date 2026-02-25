@@ -78,73 +78,81 @@ in {
   # ============================================================
   # Module implementation
   # ============================================================
-  config = lib.mkIf cfg.enable {
-    # ── Stamp the version file at build time ─────────────────────
-    environment.etc."dartkitos-version" = {
-      text = cfg.version;
-      mode = "0444";
-    };
-
-    # ── Make the update script available to admins ───────────────
-    environment.systemPackages = [updateScript];
-
-    # ── Systemd service: the actual update job ───────────────────
-    systemd.services.dartkitos-update = {
-      description = "DartkitOS OTA update check";
-      documentation = ["https://github.com/${cfg.githubRepo}"];
-
-      wants = ["network-online.target"];
-      after = ["network-online.target"];
-
-      # ── Restart throttling: prevent restart storms ─────────────
-      # Max 3 failures per hour — stops infinite restart loops
-      startLimitIntervalSec = 3600; # 1 hour
-      startLimitBurst = 3;
-
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${updateScript}/bin/dartkitos-update";
-
-        # Pass config as environment
-        Environment = [
-          "DARTKITOS_GITHUB_REPO=${cfg.githubRepo}"
-          "DARTKITOS_FLAKE_ATTR=${cfg.flakeAttr}"
-        ];
-
-        # Needs root to run nixos-rebuild switch
-        User = "root";
-
-        # Logging
-        StandardOutput = "journal";
-        StandardError = "journal";
-        SyslogIdentifier = "dartkitos-update";
-
-        # Timeouts — rebuilds can take a while downloading
-        TimeoutStartSec = "30min";
-
-        # Don't kill the rebuild if it's still running
-        KillMode = "process";
-
-        # Retry on transient network failures (with 10min delay to avoid storms)
-        Restart = "on-failure";
-        RestartSec = "10min";
+  config = lib.mkMerge [
+    {
+      # ── Stamp the version file at build time ─────────────────────
+      environment.etc."dartkitos-version" = {
+        text = cfg.version;
+        mode = "0444";
       };
-    };
 
-    # ── Systemd timer: periodic trigger ──────────────────────────
-    systemd.timers.dartkitos-update = {
-      description = "Periodic DartkitOS OTA update check";
-      wantedBy = ["timers.target"];
+      # ── Make the update script available to admins ───────────────
+      environment.systemPackages = [updateScript];
 
-      timerConfig = {
-        OnCalendar = cfg.interval;
-        # Spread out requests from the fleet
-        RandomizedDelaySec = cfg.randomDelaySec;
-        # Run missed checks after sleep/downtime
-        Persistent = true;
-        # Also run once shortly after boot (give network time to come up)
-        OnBootSec = "2min";
+      # ── Pass config to the update script via environment ─────────
+      environment.sessionVariables = {
+        DARTKITOS_FLAKE_ATTR = cfg.flakeAttr;
       };
-    };
-  };
+    }
+    (lib.mkIf cfg.enable {
+      # ── Systemd service: the actual update job ───────────────────
+      systemd.services.dartkitos-update = {
+        description = "DartkitOS OTA update check";
+        documentation = ["https://github.com/${cfg.githubRepo}"];
+
+        wants = ["network-online.target"];
+        after = ["network-online.target"];
+
+        # ── Restart throttling: prevent restart storms ─────────────
+        # Max 3 failures per hour — stops infinite restart loops
+        startLimitIntervalSec = 3600; # 1 hour
+        startLimitBurst = 3;
+
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${updateScript}/bin/dartkitos-update";
+
+          # Pass config as environment
+          Environment = [
+            "DARTKITOS_GITHUB_REPO=${cfg.githubRepo}"
+            "DARTKITOS_FLAKE_ATTR=${cfg.flakeAttr}"
+          ];
+
+          # Needs root to run nixos-rebuild switch
+          User = "root";
+
+          # Logging
+          StandardOutput = "journal";
+          StandardError = "journal";
+          SyslogIdentifier = "dartkitos-update";
+
+          # Timeouts — rebuilds can take a while downloading
+          TimeoutStartSec = "30min";
+
+          # Don't kill the rebuild if it's still running
+          KillMode = "process";
+
+          # Retry on transient network failures (with 10min delay to avoid storms)
+          Restart = "on-failure";
+          RestartSec = "10min";
+        };
+      };
+
+      # ── Systemd timer: periodic trigger ──────────────────────────
+      systemd.timers.dartkitos-update = {
+        description = "Periodic DartkitOS OTA update check";
+        wantedBy = ["timers.target"];
+
+        timerConfig = {
+          OnCalendar = cfg.interval;
+          # Spread out requests from the fleet
+          RandomizedDelaySec = cfg.randomDelaySec;
+          # Run missed checks after sleep/downtime
+          Persistent = true;
+          # Also run once shortly after boot (give network time to come up)
+          OnBootSec = "2min";
+        };
+      };
+    })
+  ];
 }

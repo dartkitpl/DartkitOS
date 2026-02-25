@@ -16,5 +16,8 @@
 
   dartkitos.autodarts.enable = true;
 
-  dartkitos.ota-update.enable = false;
+  dartkitos.ota-update = {
+    enable = false;
+    flakeAttr = "dev";
+  };
 }
