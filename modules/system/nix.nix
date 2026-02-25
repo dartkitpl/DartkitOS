@@ -1,4 +1,6 @@
-{
+{config, ...}: let
+  is-dev = config.dartkitos.environment == "dev";
+in {
   nix = {
     settings = {
       experimental-features = ["nix-command" "flakes"];
@@ -6,7 +8,10 @@
       trusted-users = ["root" "@wheel"];
 
       # Disable local building to ensure we only use pre-built binaries from our cache
-      max-jobs = 0;
+      max-jobs =
+        if is-dev
+        then 4
+        else 0;
 
       # Prefer downloading over building, even when a derivation could be built locally.
       always-allow-substitutes = true;
