@@ -110,15 +110,24 @@ Check the current version:
 dartkitos-update --version
 ```
 
-Rebuild with custom system closure (eg. while testing the configuration):
+Rebuild with the **development** configuration (eg. while testing changes locally):
 
 ```bash
 IP="192.168.1.X"  # replace with device IP
-nixos-rebuild switch --flake .#dartkitos --build-host localhost --target-host dartkit@$IP --use-remote-sudo
+nixos-rebuild switch --flake .#dev --build-host localhost --target-host dartkit@$IP --use-remote-sudo
 ```
 
 > [!NOTE]
-> This requires SSH access to the device.
+> The `.#dev` configuration is tailored for development: it enables SSH access with password authentication (in addition to key-based auth), disables OTA updates, and uses more permissive settings (eg. persistent journald storage and non-zero local build jobs). The production `.#dartkitos` configuration keeps OTA updates enabled and is more locked down.
+>
+> To get SSH key-based access in dev, add your public key to `dartkitos.dev-ssh-keys` in `configurations/dev.nix`, for example:
+>
+> ```nix
+> dartkitos.dev-ssh-keys = [
+>   "ssh-ed25519 AAAA... your-name@host"
+> ];
+> ```
+>
 > Again, binfmt/qemu setup is required if building on x86_64-linux or linux builder if on aarch64-darwin.
 
 ## License
