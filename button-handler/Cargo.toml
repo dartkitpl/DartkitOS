@@ -1,0 +1,9 @@
+[package]
+name = "button-handler"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.102"
+gpiocdev = { version = "0.8.0", features = ["async_tokio"] }
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros"] }
