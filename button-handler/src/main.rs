@@ -1,40 +1,30 @@
 use std::time::Duration;
 
-use gpiocdev::line::EdgeKind::{Falling, Rising};
-use gpiocdev::line::{Bias, EdgeDetection};
-use gpiocdev::Request;
-use gpiocdev::tokio::AsyncRequest;
+use button_handler::button::Button;
+
+/// Character device path for the GPIO chip (e.g. `"/dev/gpiochip0"`).
+const CHIP_PATH: &str = "/dev/gpiochip0";
+
+/// BCM GPIO line offset to listen on (not physical pin number!).
+const GPIO_LINE: u32 = 4;
+
+/// Duration the button must be held before the on_hold callback fires.
+const HOLD_DURATION: Duration = Duration::from_secs(3);
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    // BCM GPIO number (not physical pin number!)
-    // GPIO 4
-    let gpio_line: u32 = 4;
-
-    let req = AsyncRequest::new(Request::builder()
-        .on_chip("/dev/gpiochip0")
-        .with_line(gpio_line)
-        .as_active_low()
-        .with_bias(Bias::PullUp)
-        .with_edge_detection(EdgeDetection::BothEdges)
-        .with_consumer("gpio-button")
-        .with_debounce_period(Duration::from_millis(50))
-        .request()?);
-
-    println!("Listening on GPIO {}...", gpio_line);
-
-    loop {
-        let event = match req.read_edge_event().await {
-            Ok(event) => event,
-            Err(e) => {
-                eprintln!("Error reading edge event: {}", e);
-                continue;
-            }
-        };
-
-        match event.kind {
-            Rising => println!("Rising edge detected!"),
-            Falling => println!("Falling edge detected!"),
-        }
-    }
+    Button::new(CHIP_PATH, GPIO_LINE)
+        .hold_duration(HOLD_DURATION)
+        .on_press(|| {
+            println!("Button pressed!");
+        })
+        .on_release(|| {
+            println!("Button released!");
+        })
+        .on_hold(|| {
+            println!("Button held for {} seconds!", HOLD_DURATION.as_secs());
+            // TODO: add your action here
+        })
+        .listen()
+        .await
 }
