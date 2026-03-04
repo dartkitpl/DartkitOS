@@ -32,10 +32,64 @@
   setupCompleteMarker = "/var/lib/wifi-connect/setup-complete";
 
   # ============================================================
+  # Wi-Fi reset script
+  # ============================================================
+  # Resets the Wi-Fi configuration by stopping dependent services,
+  # removing the setup marker file, and restarting the wifi-setup service.
+  # This is called by the button-handler when the reset button is held.
+  # Services that depend on wifi setup being complete
+  # These need to be stopped before reset and started after wifi-setup completes
+  dependentServices = "nginx avahi-daemon";
+
+  wifiResetScript = pkgs.writeShellScriptBin "wifi-reset" ''
+    set -eu
+
+    MARKER_FILE="${setupCompleteMarker}"
+    DEPENDENT_SERVICES="${dependentServices}"
+
+    log() {
+      echo "[wifi-reset] $1"
+    }
+
+    # This script must run as root
+    if [ "$(id -u)" -ne 0 ]; then
+      log "Error: wifi-reset must be run as root"
+      exit 1
+    fi
+
+    log "Resetting Wi-Fi configuration..."
+
+    # Stop dependent services first (including sockets if they exist to avoid auto-restart)
+    for service in $DEPENDENT_SERVICES; do
+      log "Stopping $service..."
+      ${pkgs.systemd}/bin/systemctl stop "$service.socket" 2>/dev/null || true
+      ${pkgs.systemd}/bin/systemctl stop "$service.service" || log "Warning: failed to stop $service"
+    done
+
+    # Remove the marker file so wifi-setup thinks it's a fresh install
+    log "Removing setup marker file..."
+    rm -f "$MARKER_FILE"
+
+    # Restart wifi-setup service to launch the captive portal
+    # This blocks until wifi configuration is complete
+    log "Restarting wifi-setup service..."
+    ${pkgs.systemd}/bin/systemctl restart wifi-setup
+
+    # After wifi-setup completes (marker file created), start dependent services
+    log "Starting dependent services..."
+    for service in $DEPENDENT_SERVICES; do
+      log "Starting $service..."
+      ${pkgs.systemd}/bin/systemctl start "$service.service" || log "Warning: failed to start $service"
+    done
+
+    log "Wi-Fi reset complete"
+  '';
+
+  # ============================================================
   # Wi-Fi setup script
   # ============================================================
   # Runs ONCE per device lifetime. Creates marker file on success.
-  wifiSetupScript = pkgs.writeShellScript "wifi-setup" ''
+  wifiSetupScript = pkgs.writeShellScriptBin "wifi-setup" ''
     set -eu
 
     AP_SSID="${cfg.apSsid}"
@@ -124,6 +178,8 @@ in {
       wifi-connect
       pkgs.dnsmasq
       pkgs.networkmanager
+      wifiSetupScript
+      wifiResetScript
     ];
 
     # ============================================================
@@ -144,7 +200,7 @@ in {
       # One-shot service - runs once and exits
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = wifiSetupScript;
+        ExecStart = "${wifiSetupScript}/bin/wifi-setup";
         User = "root";
         # RemainAfterExit=true so dependent services can use After=wifi-setup.service
         RemainAfterExit = true;
