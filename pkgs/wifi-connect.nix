@@ -5,10 +5,16 @@
 # Wi-Fi configuration on IoT devices. We fetch the pre-built aarch64
 # binary from their releases.
 #
-# NOTE: If the hash is incorrect, run:
+# The UI is our custom Flutter captive portal (captive_portal/), built
+# from source using buildFlutterApplication and bundled as a web app.
+#
+# NOTE: If the binary hash is incorrect, run:
 #   nix-prefetch-url https://github.com/balena-os/wifi-connect/releases/download/v4.11.84/wifi-connect-aarch64-unknown-linux-gnu.tar.gz
 # Then convert to SRI format:
 #   nix hash to-sri --type sha256 <hash>
+#
+# NOTE: After changing Dart/Flutter dependencies, rebuild once and
+# replace vendorHash with the hash from the error message.
 {
   lib,
   stdenv,
@@ -17,7 +23,27 @@
   glibc,
   dbus,
   gcc,
+  flutter,
 }:
+let
+  # ── Captive portal UI (Flutter web) ───────────────────────────────
+  captivePortalUi = flutter.buildFlutterApplication {
+    pname = "captive-portal-ui";
+    version = "1.0.0";
+    src = ../captive_portal;
+
+    # Points to the lockfile so Nix can fetch Dart deps reproducibly.
+    autoPubspecLock = ../captive_portal/pubspec.lock;
+
+    # Use the built-in web target instead of Linux desktop.
+    # This provides correct build/install phases:
+    #   build:   flutter build web -v
+    #   install: cp -r build/web "$out"
+    # Dependencies are resolved through dartConfigHook's package_config.json,
+    # NOT through the pub cache, so "flutter pub get" is not needed.
+    targetFlutterPlatform = "web";
+  };
+in
 stdenv.mkDerivation rec {
   pname = "wifi-connect";
   version = "4.11.84";
@@ -25,12 +51,6 @@ stdenv.mkDerivation rec {
   src = fetchurl {
     url = "https://github.com/balena-os/wifi-connect/releases/download/v${version}/wifi-connect-aarch64-unknown-linux-gnu.tar.gz";
     sha256 = "sha256-QT1w5tHBNmy+KzJVXoR28+koeBeO0bnIIgWYXwVfGTY=";
-  };
-
-  # Fetch the UI separately (it's now a separate download)
-  ui = fetchurl {
-    url = "https://github.com/balena-os/wifi-connect/releases/download/v${version}/wifi-connect-ui.tar.gz";
-    sha256 = "sha256-5Xo87FWXKVFt7PiSvrHn8ZGyPnGy4TvNQ9NrmAA0/74=";
   };
 
   nativeBuildInputs = [autoPatchelfHook];
@@ -44,14 +64,12 @@ stdenv.mkDerivation rec {
 
   unpackPhase = ''
     tar -xzf $src
-    mkdir -p ui
-    tar -xzf $ui -C ui
   '';
 
   installPhase = ''
     mkdir -p $out/bin $out/share/wifi-connect
     cp wifi-connect $out/bin/
-    cp -r ui $out/share/wifi-connect/
+    cp -r ${captivePortalUi} $out/share/wifi-connect/ui
   '';
 
   meta = with lib; {
