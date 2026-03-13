@@ -1,13 +1,14 @@
 {
-    "name": "captive_portal",
-    "short_name": "captive_portal",
+    "name": "Wi-Fi Setup",
+    "short_name": "Wi-Fi Setup",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#fafafa",
+    "theme_color": "#2196F3",
+    "description": "Configure your device's Wi-Fi connection",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": ["utilities"],
     "icons": [
         {
             "src": "icons/Icon-192.png",

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -18,29 +18,115 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Wi-Fi Setup - Configure your device's wireless connection">
+
+  <!-- Mobile viewport - critical for captive portal compatibility -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="captive_portal">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Wi-Fi Setup">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Android Chrome theme -->
+  <meta name="theme-color" content="#2196F3">
+  <meta name="msapplication-navbutton-color" content="#2196F3">
+
+  <!-- Captive portal detection support -->
+  <!-- Some captive portal detectors check for specific content/headers -->
+  <meta name="captive-portal" content="true">
+
+  <!-- Disable telephone number detection (can interfere with form input) -->
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Touch handling for mobile -->
+  <meta name="touch-enabled" content="true">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>captive_portal</title>
+  <title>Wi-Fi Setup</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Minimal loading styles (shown before Flutter loads) -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background-color: #fafafa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      /* Prevent pull-to-refresh and overscroll on mobile */
+      overscroll-behavior: none;
+      /* Safe area insets for notched devices */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    /* Loading indicator shown while Flutter initializes */
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      color: #666;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #2196F3;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loading-text {
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Hide loading when Flutter app is ready */
+    .flutter-app-loaded .loading-container {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Loading indicator for slow connections -->
+  <div class="loading-container">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading Wi-Fi Setup...</div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // Configure Flutter for optimal captive portal performance
+    window.flutterConfiguration = {
+      // Use HTML renderer for faster load times and better compatibility
+      // with mobile captive portal webviews (Android CaptivePortalLogin,
+      // iOS CaptiveNetworkSupport). CanvasKit is larger and slower to load.
+      renderer: 'html',
+      // Disable service worker caching - captive portal is accessed once
+      // and caching can interfere with portal detection
+      serviceWorkerSettings: {
+        enable: false
+      }
+    };
+
+    // Mark body as loaded when Flutter app is ready
+    window.addEventListener('flutter-first-frame', function() {
+      document.body.classList.add('flutter-app-loaded');
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -18,10 +18,12 @@
         flutter
         chromium
         git
+        python3
       ];
       CHROME_EXECUTABLE = "${pkgs.chromium}/bin/chromium";
       shellHook = ''
         flutter --version
+        echo "Web server: python3 -m http.server -d build/web 8080"
       '';
     };
   };
