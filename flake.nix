@@ -14,6 +14,12 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin"];
 
+    forAllSystems = f:
+      nixpkgs.lib.genAttrs systems (system: let
+        pkgs = import nixpkgs {inherit system;};
+      in
+        f system pkgs);
+
     # Derive version from the flake's source info.
     # - self.rev: full commit SHA from a clean git checkout or github: flake ref
     # - self.dirtyRev: commit SHA + "-dirty" when there are uncommitted changes
@@ -52,6 +58,24 @@
     packages = nixpkgs.lib.genAttrs systems (_: {
       default = nixosConfigurations.dartkitos.config.system.build.toplevel;
       sdImage = nixosConfigurations.dartkitos.config.system.build.sdImage;
+    });
+
+    # Dev shells
+    devShells = forAllSystems (_system: pkgs: {
+      button-handler = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          cargo
+          rustc
+          rustfmt
+          rust-analyzer
+        ];
+
+        shellHook = ''
+          echo "Welcome to the button-handler Rust devshell!"
+          echo -n "Rust compiler version: "
+          rustc --version
+        '';
+      };
     });
   };
 }
