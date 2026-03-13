@@ -20,4 +20,6 @@
     enable = false;
     flakeAttr = "dev";
   };
+
+  dartkitos.button-handler.enable = true;
 }
