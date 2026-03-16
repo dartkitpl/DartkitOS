@@ -20,4 +20,6 @@
     enable = false;
     flakeAttr = "dev";
   };
+
+  dartkitos.gpio-handlers.button.enable = true;
 }

@@ -3,16 +3,25 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs-25-11.url = "github:NixOS/nixpkgs/nixos-25.11";
     nixos-hardware.url = "github:NixOS/nixos-hardware";
   };
 
   outputs = {
     self,
     nixpkgs,
+    nixpkgs-25-11,
     nixos-hardware,
     ...
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin"];
+
+    forAllSystems = f:
+      nixpkgs.lib.genAttrs systems (system: let
+        # Use 25.11 for devshells
+        pkgs = import nixpkgs-25-11 {inherit system;};
+      in
+        f system pkgs);
 
     # Derive version from the flake's source info.
     # - self.rev: full commit SHA from a clean git checkout or github: flake ref
@@ -32,10 +41,11 @@
       nixpkgs.lib.nixosSystem {
         system = "aarch64-linux";
         specialArgs = {
-          inherit nixos-hardware nixpkgs;
+          inherit nixos-hardware nixpkgs nixpkgs-25-11;
           dartkitosVersion = version;
         };
         modules = [
+          ./overlays.nix
           ./modules
           configuration
         ];
@@ -52,6 +62,24 @@
     packages = nixpkgs.lib.genAttrs systems (_: {
       default = nixosConfigurations.dartkitos.config.system.build.toplevel;
       sdImage = nixosConfigurations.dartkitos.config.system.build.sdImage;
+    });
+
+    # Dev shells
+    devShells = forAllSystems (_system: pkgs: {
+      button-handler = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          cargo
+          rustc
+          rustfmt
+          rust-analyzer
+        ];
+
+        shellHook = ''
+          echo "Welcome to the button-handler Rust devshell!"
+          echo -n "Rust compiler version: "
+          rustc --version
+        '';
+      };
     });
   };
 }
