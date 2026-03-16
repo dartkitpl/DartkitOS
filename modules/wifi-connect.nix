@@ -46,6 +46,7 @@
 
     MARKER_FILE="${setupCompleteMarker}"
     DEPENDENT_SERVICES="${dependentServices}"
+    LED_CMD="${cfg.ledCmd}"
 
     if [[ "''${1:-}" == "-h" || "''${1:-}" == "--help" ]]; then
       echo "Usage: $(basename "$0")"
@@ -62,6 +63,7 @@
       log "Error: wifi-reset must be run as root"
       exit 1
     fi
+    $LED_CMD on &
 
     log "Resetting Wi-Fi configuration..."
 
@@ -79,6 +81,7 @@
     # Restart wifi-setup service to launch the captive portal
     # This blocks until wifi configuration is complete
     log "Restarting wifi-setup service..."
+    $LED_CMD blink &
     ${pkgs.systemd}/bin/systemctl restart wifi-setup
 
     # After wifi-setup completes (marker file created), start dependent services
@@ -87,6 +90,10 @@
       log "Starting $service..."
       ${pkgs.systemd}/bin/systemctl start "$service.service" || log "Warning: failed to start $service"
     done
+
+    pkill $LED_CMD || true
+    # Blink fast a few times to indicate success, then turn off
+    $LED_CMD blink --duration 100 --count 3 &
 
     log "Wi-Fi reset complete"
   '';
@@ -103,6 +110,7 @@
     PORTAL_PORT="${toString cfg.portalPort}"
     WIFI_INTERFACE="${cfg.wifiInterface}"
     MARKER_FILE="${setupCompleteMarker}"
+    LED_CMD="${cfg.ledCmd}"
 
     if [[ "''${1:-}" == "-h" || "''${1:-}" == "--help" ]]; then
       echo "Usage: $(basename "$0")"
@@ -121,6 +129,7 @@
     fi
 
     log "Wi-Fi setup starting..."
+    $LED_CMD on &
 
     # Ensure state directory exists
     mkdir -p "$(dirname "$MARKER_FILE")"
@@ -130,6 +139,8 @@
     ${pkgs.networkmanager}/bin/nm-online -s -q -t 30 || true
 
     log "Starting captive portal for Wi-Fi configuration"
+
+    $LED_CMD blink &
     PATH="${pkgs.dnsmasq}/bin:$PATH" ${wifi-connect}/bin/wifi-connect \
       -s "$AP_SSID" \
       -p "$AP_PASSPHRASE" \
@@ -140,6 +151,10 @@
     # wifi-connect exits with 0 when user successfully configures Wi-Fi
     log "Wi-Fi configured successfully. Marking setup as complete."
     echo "Setup completed on $(date -Iseconds)" >> "$MARKER_FILE"
+
+    pkill $LED_CMD || true
+    # Blink fast a few times to indicate success, then turn off
+    $LED_CMD blink --duration 100 --count 3 &
 
     log "Wi-Fi setup finished."
   '';
@@ -178,6 +193,12 @@ in {
       type = lib.types.int;
       default = 0;
       description = "Timeout in seconds for the captive portal (0 = no timeout)";
+    };
+
+    ledCmd = lib.mkOption {
+      type = lib.types.str;
+      default = "led-handler";
+      description = "Command to control the LED for status indication";
     };
   };
 

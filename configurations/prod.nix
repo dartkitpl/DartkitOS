@@ -28,4 +28,6 @@
     interval = "*:0/15"; # every 15 min (default)
     randomDelaySec = 120; # stagger fleet (default)
   };
+
+  dartkitos.gpio-handlers.button.enable = true;
 }
