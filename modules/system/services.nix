@@ -41,7 +41,6 @@ in {
     };
 
     # Nginx reverse proxy - proxy port 80 to 3180
-    # Only starts after wifi-setup has completed (marker file exists)
     services.nginx = {
       enable = true;
       recommendedProxySettings = true;
@@ -59,13 +58,6 @@ in {
       };
     };
 
-    systemd.services.nginx = {
-      after = ["wifi-setup.service"];
-      requires = ["wifi-setup.service"];
-      # Only start if setup has been completed
-      unitConfig.ConditionPathExists = "/var/lib/wifi-connect/setup-complete";
-    };
-
     # mDNS/DNS-SD for local network discovery (dartkitbox.local)
     services.avahi = {
       enable = true;
@@ -75,12 +67,6 @@ in {
         addresses = true;
         workstation = true;
       };
-    };
-
-    systemd.services.avahi-daemon = {
-      after = ["wifi-setup.service"];
-      requires = ["wifi-setup.service"];
-      unitConfig.ConditionPathExists = "/var/lib/wifi-connect/setup-complete";
     };
   };
 }

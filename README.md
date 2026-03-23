@@ -61,16 +61,27 @@ sync
 
 Insert the SD card into your Raspberry Pi 4 and power it on.
 
-### Step 4: Connect to Wi-Fi (first boot)
+### Step 4: Connect to Wi-Fi
 
 > [!NOTE]
 > Skip this step if you have an Ethernet connection.
+>
+> [!TIP]
+> If you don't yet have a button, you can also trigger the setup portal by:
+>
+> - running `wifi-setup` manually after SSHing into the device via Ethernet.
+> - enabling `dartkitos.wifi-setup.startOnEveryBoot` in the configuration and reflashing (you can disable it once configured- the wifi config will be preserved).
+> - connecting correct GPIO pins to simulate the button hold with tweezers or wire.
 
-1. Wait ~60 seconds for the setup AP to appear
-2. Connect to Wi-Fi network **`DartkitOS-Setup`** (password: `dartkitOS`)
-3. Open a browser — you'll be redirected to the captive portal
-4. Select your home Wi-Fi network and enter the password
-5. The Pi reboots and connects to your network
+1. Hold the button on the bottom of the device for 5 seconds
+2. Wait till you see the LED pattern indicating the setup AP is active.
+3. Connect to Wi-Fi network **`DartkitOS-Setup`** (password: `dartkitos`)
+4. Open a browser — you'll be redirected to the captive portal
+5. Select your home Wi-Fi network and enter the password
+6. Device will apply the settings and connect to your Wi-Fi network
+
+> [!NOTE]
+> If you need to reset the Wi-Fi configuration later, hold the button for 5 seconds
 
 ## OTA Updates
 

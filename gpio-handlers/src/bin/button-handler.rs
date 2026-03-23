@@ -12,26 +12,25 @@ const GPIO_LINE: u32 = 4;
 /// Duration the button must be held before the on_hold callback fires.
 const HOLD_DURATION: Duration = Duration::from_secs(5);
 
-const RESET_CMD: &str = "wifi-reset";
+const WIFI_SETUP_CMD: &str = "wifi-setup";
 
-/// Checks if the wifi-reset command exists and is executable.
+/// Checks if the WIFI_SETUP_CMD command exists and is executable.
 fn check_cmd_runnable() -> anyhow::Result<()> {
-    match Command::new(RESET_CMD).arg("--help").status() {
+    match Command::new(WIFI_SETUP_CMD).arg("--help").status() {
         Ok(s) if s.success() => Ok(()),
-        Ok(s) => anyhow::bail!("{} --help exited with: {}", RESET_CMD, s),
-        Err(e) => anyhow::bail!("Failed to run {} --help: {}", RESET_CMD, e),
+        Ok(s) => anyhow::bail!("{} --help exited with: {}", WIFI_SETUP_CMD, s),
+        Err(e) => anyhow::bail!("Failed to run {} --help: {}", WIFI_SETUP_CMD, e),
     }
 }
 
-/// Runs the wifi-reset script to reset Wi-Fi configuration.
-/// This stops dependent services, removes the setup marker, and restarts wifi-setup.
+/// Runs the Wi-Fi reset command to clear saved Wi-Fi credentials and restart the setup portal.
 fn reset_wifi_config() {
-    println!("Running {} command...", RESET_CMD);
+    println!("Running {} command...", WIFI_SETUP_CMD);
 
-    match Command::new(RESET_CMD).status() {
-        Ok(s) if s.success() => println!("{} completed successfully", RESET_CMD),
-        Ok(s) => eprintln!("{} exited with: {}", RESET_CMD, s),
-        Err(e) => eprintln!("Failed to run {}: {}", RESET_CMD, e),
+    match Command::new(WIFI_SETUP_CMD).status() {
+        Ok(s) if s.success() => println!("{} completed successfully", WIFI_SETUP_CMD),
+        Ok(s) => eprintln!("{} exited with: {}", WIFI_SETUP_CMD, s),
+        Err(e) => eprintln!("Failed to run {}: {}", WIFI_SETUP_CMD, e),
     }
 }
 
@@ -48,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
             println!("Button released!");
         })
         .on_hold(|| {
-            println!("Button held for {} seconds! Triggering Wi-Fi reset...", HOLD_DURATION.as_secs());
+            println!("Button held for {} seconds! Triggering Wi-Fi setup...", HOLD_DURATION.as_secs());
             reset_wifi_config();
         })
         .listen()
