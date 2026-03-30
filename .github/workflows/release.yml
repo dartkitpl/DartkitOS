@@ -1,9 +1,10 @@
 # ============================================================
 # DartkitOS Release Pipeline
 # ============================================================
-# Manually triggered. Builds the full NixOS closure for
-# aarch64-linux using QEMU emulation, pushes every store path
-# to the Attic binary cache, and publishes a GitHub Release.
+# Manually triggered. Runs a two-stage release pipeline:
+#   1. Build and push the dev/staging closure for QA
+#   2. Wait for manual approval, then build and push prod
+#      and publish the GitHub Release
 #
 # Version tags are created automatically by a semantic-versioning
 # tagger (conventional commits). This workflow is only run when
@@ -71,11 +72,52 @@ jobs:
         run: |
           nix flake check --no-build --all-systems --accept-flake-config
 
-  # ── Job 2: Build, push to cache, publish release ─────────────
-  # Only runs after validation passes.
-  build-and-push:
-    name: Build & push to cache
+  # ── Job 2: Build dev closure and push to cache ───────
+  # This stage is intended for QA before production promotion.
+  staging:
+    name: Build & push staging
     needs: check
+    uses: ./.github/workflows/build-and-push-closure.yml
+    with:
+      ref: ${{ github.event.inputs.tag }}
+      flake_target: .#dev
+      build_label: "Staging"
+    secrets:
+      attic_token: ${{ secrets.ATTIC_TOKEN }}
+      tailscale_oauth_client_id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      tailscale_oauth_secret: ${{ secrets.TS_OAUTH_SECRET }}
+
+  # ── Job 3: Manual approval gate before production ───────────
+  # Configure the "production" environment with required
+  # reviewers in GitHub settings to enforce the approval gate.
+  approve-production:
+    name: Approve production
+    needs: staging
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Wait for approval
+        run: echo "Production approval granted."
+
+  # ── Job 4: Build prod closure and push to cache ─────────────
+  production:
+    name: Build & push production
+    needs: [staging, approve-production]
+    uses: ./.github/workflows/build-and-push-closure.yml
+    with:
+      ref: ${{ github.event.inputs.tag }}
+      flake_target: .#default
+      build_label: "Production"
+    secrets:
+      attic_token: ${{ secrets.ATTIC_TOKEN }}
+      tailscale_oauth_client_id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      tailscale_oauth_secret: ${{ secrets.TS_OAUTH_SECRET }}
+
+  # ── Job 5: Publish GitHub Release ───────────────────────────
+  publish-release:
+    name: Publish GitHub Release
+    needs: [staging, production]
     runs-on: ubuntu-latest
 
     steps:
@@ -164,9 +206,9 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-          # Closure size info for release notes
-          CLOSURE_SIZE=$(nix path-info -S ./result 2>/dev/null | awk '{print $2}' || echo "unknown")
+          CLOSURE_SIZE="${{ needs.production.outputs.closure_size }}"
           echo "closure_size=$CLOSURE_SIZE" >> "$GITHUB_OUTPUT"
+          echo "**Production closure size:** $CLOSURE_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
 
       # ── Create GitHub Release ────────────────────────────────
       - name: Create GitHub Release
@@ -178,10 +220,12 @@ jobs:
             ## DartkitOS ${{ steps.meta.outputs.tag }}
 
             **Released:** ${{ steps.meta.outputs.date }}
-            **Closure size:** ${{ steps.meta.outputs.closure_size }} bytes
+            **Staging closure size:** ${{ needs.staging.outputs.closure_size }} bytes
+            **Production closure size:** ${{ steps.meta.outputs.closure_size }} bytes
 
             ### What's included
-            - Full NixOS system closure for Raspberry Pi 4 (aarch64-linux)
+            - Staging/QA build from `.#dev`
+            - Production build from `.#default`
             - All store paths pushed to `cache.dartkit.pl/dartkitos`
 
             ### For consumers

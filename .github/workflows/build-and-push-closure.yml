@@ -1,0 +1,118 @@
+name: Build and Push Closure
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check out
+        required: true
+        type: string
+      flake_target:
+        description: Flake target to build, for example .#dev or .#default
+        required: true
+        type: string
+      build_label:
+        description: Human-readable label for workflow summary output
+        required: true
+        type: string
+    secrets:
+      attic_token:
+        description: Attic authentication token
+        required: true
+      tailscale_oauth_client_id:
+        description: Tailscale OAuth client ID
+        required: true
+      tailscale_oauth_secret:
+        description: Tailscale OAuth secret
+        required: true
+    outputs:
+      closure_size:
+        description: Closure size in bytes
+        value: ${{ jobs.build.outputs.closure_size }}
+      store_path:
+        description: Built store path
+        value: ${{ jobs.build.outputs.store_path }}
+
+jobs:
+  build:
+    name: Build and push closure
+    runs-on: ubuntu-latest
+    outputs:
+      closure_size: ${{ steps.meta.outputs.closure_size }}
+      store_path: ${{ steps.build.outputs.store_path }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up QEMU for aarch64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            extra-platforms = aarch64-linux
+            extra-substituters = https://cache.dartkit.pl/dartkitos
+            extra-trusted-substituters = https://cache.dartkit.pl/dartkitos
+            extra-trusted-public-keys = dartkitos:qbEVIC7PCAV2tfg+nUbUT9LqK30r6sdh9vOOcoiag40=
+
+      - name: Register binfmt interpreters
+        run: |
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          use-cache: 'true'
+          oauth-client-id: ${{ secrets.tailscale_oauth_client_id }}
+          oauth-secret: ${{ secrets.tailscale_oauth_secret }}
+          tags: tag:ci
+
+      - name: Install Attic client
+        run: |
+          nix profile add github:NixOS/nixpkgs/nixos-25.11#attic-client
+
+      - name: Configure Attic
+        run: |
+          attic login dartkit http://attic.deer-bangus.ts.net:8080 "${{ secrets.attic_token }}"
+          attic cache info dartkitos
+
+      - name: Build closure
+        id: build
+        run: |
+          nix build "${{ inputs.flake_target }}" \
+            --print-build-logs \
+            --accept-flake-config \
+            --option system aarch64-linux \
+            --extra-platforms aarch64-linux
+
+          store_path="$(readlink -f ./result)"
+          echo "store_path=$store_path" >> "$GITHUB_OUTPUT"
+          echo "Built: $store_path"
+          echo "### ${{ inputs.build_label }} build output" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$store_path" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push closure to cache
+        run: |
+          for i in {1..5}; do
+            if attic push dartkitos ./result -j 4; then
+              exit 0
+            fi
+            echo "Attempt $i failed. Retrying in 10s..."
+            sleep 10
+          done
+          exit 1
+
+      - name: Collect build metadata
+        id: meta
+        run: |
+          closure_size="$(nix path-info -S ./result 2>/dev/null | awk '{print $2}' || echo "unknown")"
+          echo "closure_size=$closure_size" >> "$GITHUB_OUTPUT"
+          echo "**${{ inputs.build_label }} closure size:** $closure_size bytes" >> "$GITHUB_STEP_SUMMARY"
