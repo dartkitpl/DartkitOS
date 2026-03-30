@@ -36,6 +36,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
+          image: tonistiigi/binfmt:qemu-v9.2.2
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
@@ -48,10 +49,6 @@ jobs:
 
       - name: Enable Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Register binfmt interpreters
-        run: |
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
       - name: nix flake check
         run: |

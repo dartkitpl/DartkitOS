@@ -1,9 +1,10 @@
 # ============================================================
 # DartkitOS Release Pipeline
 # ============================================================
-# Manually triggered. Builds the full NixOS closure for
-# aarch64-linux using QEMU emulation, pushes every store path
-# to the Attic binary cache, and publishes a GitHub Release.
+# Manually triggered. Runs a two-stage release pipeline:
+#   1. Build and push the dev/staging closure for QA
+#   2. Wait for manual approval, then build and push prod
+#      and publish the GitHub Release
 #
 # Version tags are created automatically by a semantic-versioning
 # tagger (conventional commits). This workflow is only run when
@@ -11,6 +12,8 @@
 #
 # Prerequisites (repository secrets):
 #   ATTIC_TOKEN   — Attic authentication token for cache.dartkit.pl
+#   TS_OAUTH_CLIENT_ID — Tailscale OAuth client ID for cache access
+#   TS_OAUTH_SECRET — Tailscale OAuth secret for cache access
 # ============================================================
 name: Release
 
@@ -71,91 +74,55 @@ jobs:
         run: |
           nix flake check --no-build --all-systems --accept-flake-config
 
-  # ── Job 2: Build, push to cache, publish release ─────────────
-  # Only runs after validation passes.
-  build-and-push:
-    name: Build & push to cache
+  # ── Job 2: Build dev closure and push to cache ───────
+  # This stage is intended for QA before production promotion.
+  staging:
+    name: Build & push staging
     needs: check
+    uses: ./.github/workflows/build-and-push-closure.yml
+    with:
+      ref: ${{ github.event.inputs.tag }}
+      flake_target: .#dev
+      build_label: "Staging"
+    secrets:
+      attic_token: ${{ secrets.ATTIC_TOKEN }}
+      tailscale_oauth_client_id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      tailscale_oauth_secret: ${{ secrets.TS_OAUTH_SECRET }}
+
+  # ── Job 3: Manual approval gate before production ───────────
+  # Configure the "production" environment with required
+  # reviewers in GitHub settings to enforce the approval gate.
+  approve-production:
+    name: Approve production
+    needs: staging
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Wait for approval
+        run: echo "Production approval granted."
+
+  # ── Job 4: Build prod closure and push to cache ─────────────
+  production:
+    name: Build & push production
+    needs: [staging, approve-production]
+    uses: ./.github/workflows/build-and-push-closure.yml
+    with:
+      ref: ${{ github.event.inputs.tag }}
+      flake_target: .#default
+      build_label: "Production"
+    secrets:
+      attic_token: ${{ secrets.ATTIC_TOKEN }}
+      tailscale_oauth_client_id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      tailscale_oauth_secret: ${{ secrets.TS_OAUTH_SECRET }}
+
+  # ── Job 5: Publish GitHub Release ───────────────────────────
+  publish-release:
+    name: Publish GitHub Release
+    needs: [staging, production]
     runs-on: ubuntu-latest
 
     steps:
-      # ── Checkout ──────────────────────────────────────────────
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.inputs.tag }}
-
-      # ── QEMU for aarch64 emulation ───────────────────────────
-      - name: Set up QEMU for aarch64
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      # ── Install Nix ──────────────────────────────────────────
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-        with:
-          extra-conf: |
-            extra-platforms = aarch64-linux
-            extra-substituters = https://cache.dartkit.pl/dartkitos
-            extra-trusted-substituters = https://cache.dartkit.pl/dartkitos
-            extra-trusted-public-keys = dartkitos:qbEVIC7PCAV2tfg+nUbUT9LqK30r6sdh9vOOcoiag40=
-
-      # ── Register binfmt for aarch64 ──────────────────────────
-      - name: Register binfmt interpreters
-        run: |
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
-      # ── Connect to Tailscale ─────────────────────────────────
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
-        with:
-          use-cache: 'true'
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
-      # ── Install Attic client ─────────────────────────────────
-      - name: Install Attic client
-        run: |
-          nix profile add github:NixOS/nixpkgs/nixos-25.11#attic-client
-
-      # ── Configure Attic ──────────────────────────────────────
-      - name: Configure Attic
-        run: |
-          attic login dartkit http://attic.deer-bangus.ts.net:8080 "${{ secrets.ATTIC_TOKEN }}"
-          attic cache info dartkitos
-
-      # ── Build the NixOS system closure ───────────────────────
-      - name: Build DartkitOS closure
-        run: |
-          nix build .#default \
-            --print-build-logs \
-            --accept-flake-config \
-            --option system aarch64-linux \
-            --extra-platforms aarch64-linux
-
-          STORE_PATH=$(readlink -f ./result)
-          echo "Built: $STORE_PATH"
-          echo "### 📦 Build output" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "$STORE_PATH" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-
-      # ── Push closure to Attic ────────────────────────────────
-      - name: Push closure to cache
-        run: |
-          for i in {1..5}; do
-            if attic push dartkitos ./result -j 4; then
-              exit 0
-            fi
-            echo "Attempt $i failed. Retrying in 10s..."
-            sleep 10
-          done
-          exit 1
-        env:
-          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
-
       # ── Derive release info ──────────────────────────────────
       - name: Get release metadata
         id: meta
@@ -164,9 +131,13 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-          # Closure size info for release notes
-          CLOSURE_SIZE=$(nix path-info -S ./result 2>/dev/null | awk '{print $2}' || echo "unknown")
+          STORE_PATH="${{ needs.production.outputs.store_path }}"
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+          CLOSURE_SIZE="${{ needs.production.outputs.closure_size }}"
           echo "closure_size=$CLOSURE_SIZE" >> "$GITHUB_OUTPUT"
+          echo "**Production store path:** \`$STORE_PATH\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Production closure size:** $CLOSURE_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
 
       # ── Create GitHub Release ────────────────────────────────
       - name: Create GitHub Release
@@ -178,10 +149,13 @@ jobs:
             ## DartkitOS ${{ steps.meta.outputs.tag }}
 
             **Released:** ${{ steps.meta.outputs.date }}
-            **Closure size:** ${{ steps.meta.outputs.closure_size }} bytes
+            **Staging closure size:** ${{ needs.staging.outputs.closure_size }} bytes
+            **Production closure size:** ${{ steps.meta.outputs.closure_size }} bytes
+            **Production store path:** `${{ steps.meta.outputs.store_path }}`
 
             ### What's included
-            - Full NixOS system closure for Raspberry Pi 4 (aarch64-linux)
+            - Staging/QA build from `.#dev`
+            - Production build from `.#default`
             - All store paths pushed to `cache.dartkit.pl/dartkitos`
 
             ### For consumers
