@@ -1,6 +1,11 @@
 {
-  perSystem = {pkgs, ...}: {
-    packages.wifi-connect = pkgs.callPackage ({
+  perSystem = {
+    pkgs,
+    system,
+    ...
+  }: {
+    packages = pkgs.lib.optionalAttrs (system == "aarch64-linux") {
+      wifi-connect = pkgs.callPackage ({
       lib,
       stdenv,
       fetchurl,
@@ -52,5 +57,6 @@
           platforms = ["aarch64-linux"];
         };
       }) {};
+    };
   };
 }
