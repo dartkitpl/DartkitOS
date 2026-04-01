@@ -65,12 +65,12 @@
       $LED_CMD blink &
 
       PATH="${pkgs.dnsmasq}/bin:$PATH" ${wifi-connect}/bin/wifi-connect \
-        -s "$AP_SSID" \
-        -p "$AP_PASSPHRASE" \
-        -o "$PORTAL_PORT" \
-        -a "$ACTIVITY_TIMEOUT" \
-        -i "$WIFI_INTERFACE" \
-        -u ${wifi-connect}/share/wifi-connect/ui
+        --portal-ssid "$AP_SSID" \
+        --portal-passphrase "$AP_PASSPHRASE" \
+        --portal-listening-port "$PORTAL_PORT" \
+        --activity-timeout "$ACTIVITY_TIMEOUT" \
+        --portal-interface "$WIFI_INTERFACE" \
+        --ui-directory ${wifi-connect}/share/wifi-connect/ui
 
       log "Wi-Fi configured successfully"
 
