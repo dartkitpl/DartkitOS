@@ -58,6 +58,8 @@ in {
       };
     };
 
+    networking.firewall.allowedTCPPorts = [80];
+
     # mDNS/DNS-SD for local network discovery (dartkitbox.local)
     services.avahi = {
       enable = true;
@@ -68,5 +70,7 @@ in {
         workstation = true;
       };
     };
+
+    networking.firewall.allowedUDPPorts = [5353];
   };
 }

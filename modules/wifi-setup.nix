@@ -166,6 +166,9 @@
         # Let wifi-connect manage the wifi interface when in AP mode
         unmanaged = ["interface-name:ap*"];
       };
+
+      networking.firewall.allowedTCPPorts = [cfg.portalPort];
+      networking.firewall.allowedUDPPorts = [67]; # DHCP for AP mode
     };
   };
 }

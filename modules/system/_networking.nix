@@ -16,9 +16,8 @@
     # Basic firewall
     firewall = {
       enable = true;
-      # Allow captive portal HTTP, DNS, autodarts setup
-      allowedTCPPorts = [80 53 3180 3181];
-      allowedUDPPorts = [53 67 5353]; # DNS, DHCP for AP mode, mDNS
+      allowedTCPPorts = [53];
+      allowedUDPPorts = [53];
     };
   };
 }
