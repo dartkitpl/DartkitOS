@@ -7,8 +7,6 @@
 
       self.nixosModules.autodarts
       self.nixosModules.wifiSetup
-
-      self.nixosModules.sdImage
     ];
   };
 }

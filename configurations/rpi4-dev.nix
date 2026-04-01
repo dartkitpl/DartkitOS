@@ -4,9 +4,8 @@
   ...
 }: let
   system = "aarch64-linux";
-  configName = "dev";
 in {
-  flake.nixosConfigurations.${configName} = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.rpi4-dev = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
 
     specialArgs = {
@@ -15,6 +14,7 @@ in {
     };
 
     modules = [
+      self.nixosModules.rpi4
       self.nixosModules.dartkitosBase
 
       {
