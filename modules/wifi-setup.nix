@@ -17,6 +17,7 @@
 
       DEPENDENT_SERVICES="${dependentServices}"
       LED_CMD="${cfg.ledCmd}"
+      ACTIVITY_TIMEOUT="${toString cfg.activityTimeout}"
 
       AP_SSID="${cfg.apSsid}"
       AP_PASSPHRASE="${cfg.apPassphrase}"
@@ -67,6 +68,7 @@
         -s "$AP_SSID" \
         -p "$AP_PASSPHRASE" \
         -o "$PORTAL_PORT" \
+        -a "$ACTIVITY_TIMEOUT" \
         -i "$WIFI_INTERFACE" \
         -u ${wifi-connect}/share/wifi-connect/ui
 
