@@ -37,6 +37,11 @@ jobs:
   build:
     name: Build and push closure
     runs-on: ubuntu-latest
+    # Run all shell steps inside the flake-pinned CI devshell so tools like
+    # attic-client come from this repo's locked nixpkgs input.
+    defaults:
+      run:
+        shell: nix develop --accept-flake-config .#ci --command bash -euo pipefail {0}
     outputs:
       closure_size: ${{ steps.meta.outputs.closure_size }}
       store_path: ${{ steps.build.outputs.store_path }}
@@ -70,11 +75,13 @@ jobs:
           oauth-secret: ${{ secrets.tailscale_oauth_secret }}
           tags: tag:ci
 
-      - name: Install Attic client
+      - name: Verify Attic client from CI devshell
         run: |
-          nix profile add github:NixOS/nixpkgs/nixos-25.11#attic-client
+          attic --version
 
       - name: Configure Attic
+        env:
+          ATTIC_TOKEN: ${{ secrets.attic_token }}
         run: |
           # Attic is reached via a Tailscale-only hostname inside a private tailnet.
           # HTTP is acceptable in this topology; traffic is encrypted/authenticated by WireGuard.

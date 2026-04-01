@@ -2,6 +2,12 @@
   perSystem = {pkgs, ...}: let
     pkgs25 = pkgs.nixpkgs25;
   in {
+    devShells.ci = pkgs.mkShell {
+      packages = with pkgs; [
+        attic-client
+      ];
+    };
+
     devShells.button-handler = pkgs25.mkShell {
       buildInputs = with pkgs25; [
         cargo
