@@ -184,7 +184,7 @@
           NEW_KERNEL="$(readlink /run/current-system/kernel 2>/dev/null || echo "")"
 
           if [[ "''${CURRENT_KERNEL}" != "''${NEW_KERNEL}" && -n "''${NEW_KERNEL}" ]]; then
-            info "Kernel changed — scheduling reboot in 10 seconds..."
+            info "Kernel changed — scheduling immediate reboot..."
             echo "''${LATEST_TAG}" > "''${STATE_DIR}/reboot-pending-version"
             # Give services time to settle, then reboot
             shutdown -r +0 "DartkitOS update: rebooting for kernel change (''${LATEST_TAG})"
