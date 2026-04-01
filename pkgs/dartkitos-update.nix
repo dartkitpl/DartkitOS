@@ -1,6 +1,11 @@
 {
-  perSystem = {pkgs, ...}: {
-    packages.dartkitos-update = pkgs.callPackage ({
+  perSystem = {
+    pkgs,
+    system,
+    ...
+  }: {
+    packages = pkgs.lib.optionalAttrs (pkgs.lib.hasSuffix "-linux" system) {
+      dartkitos-update = pkgs.callPackage ({
       writeShellApplication,
       coreutils,
       curl,
@@ -190,5 +195,6 @@
           info "Update to ''${LATEST_TAG} complete."
         '';
       }) {};
+    };
   };
 }

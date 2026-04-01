@@ -1,6 +1,11 @@
 {
-  perSystem = {pkgs, ...}: {
-    packages.gpio-handlers = pkgs.nixpkgs25.callPackage ({
+  perSystem = {
+    pkgs,
+    system,
+    ...
+  }: {
+    packages = pkgs.lib.optionalAttrs (system == "aarch64-linux") {
+      gpio-handlers = pkgs.nixpkgs25.callPackage ({
       rustPlatform,
       lib,
       libgpiod,
@@ -21,5 +26,6 @@
           platforms = ["aarch64-linux"];
         };
       }) {};
+    };
   };
 }

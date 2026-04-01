@@ -1,5 +1,9 @@
 {
-  perSystem = {pkgs, ...}: let
+  perSystem = {
+    pkgs,
+    system,
+    ...
+  }: let
     autodartsPkg = {
       stdenv,
       fetchurl,
@@ -50,6 +54,8 @@
         };
       };
   in {
-    packages.autodarts = pkgs.lib.makeOverridable (args: pkgs.callPackage autodartsPkg args) {};
+    packages = pkgs.lib.optionalAttrs (pkgs.lib.elem system ["x86_64-linux" "aarch64-linux" "armv7l-linux"]) {
+      autodarts = pkgs.lib.makeOverridable (args: pkgs.callPackage autodartsPkg args) {};
+    };
   };
 }
