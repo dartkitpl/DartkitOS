@@ -8,7 +8,9 @@
   }: let
     cfg = config.dartkitos.autodarts;
 
-    autodarts = (getSystem system).packages.autodarts;
+    autodarts = (getSystem system).packages.autodarts.override {
+      channel = cfg.channel;
+    };
   in {
     # ============================================================
     # Module options

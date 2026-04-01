@@ -1,6 +1,6 @@
 {
-  perSystem = {pkgs, ...}: {
-    packages.autodarts = pkgs.callPackage ({
+  perSystem = {pkgs, ...}: let
+    autodartsPkg = {
       stdenv,
       fetchurl,
       autoPatchelfHook,
@@ -48,6 +48,8 @@
           homepage = "https://autodarts.io";
           platforms = ["x86_64-linux" "aarch64-linux" "armv7l-linux"];
         };
-      }) {};
+      };
+  in {
+    packages.autodarts = pkgs.lib.makeOverridable (args: pkgs.callPackage autodartsPkg args) {};
   };
 }
