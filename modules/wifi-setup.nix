@@ -42,7 +42,7 @@
       fi
 
       cleanup() {
-        pkill $LED_CMD || true
+        ${pkgs.procps}/bin/pkill --exact -- "$LED_CMD" || true
         $LED_CMD off || true
       }
 
