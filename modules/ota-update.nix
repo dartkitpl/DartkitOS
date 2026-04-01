@@ -1,8 +1,11 @@
-{getSystem, ...}: {
+{
+  self,
+  getSystem,
+  ...
+}: {
   flake.nixosModules.otaUpdate = {
     config,
     lib,
-    dartkitosVersion,
     system,
     ...
   }: let
@@ -48,15 +51,6 @@
           Prevents all consumers from hitting GitHub/cache simultaneously.
         '';
       };
-
-      version = lib.mkOption {
-        type = lib.types.str;
-        default = dartkitosVersion;
-        description = ''
-          The current version string written to /etc/dartkitos-version.
-          This is normally set automatically by the flake via specialArgs.
-        '';
-      };
     };
 
     # ============================================================
@@ -65,8 +59,22 @@
     config = lib.mkMerge [
       {
         # ── Stamp the version file at build time ─────────────────────
+
+        # Derive version from the flake's source info.
+        # - self.rev: full commit SHA from a clean git checkout or github: flake ref
+        # - self.dirtyRev: commit SHA + "-dirty" when there are uncommitted changes
+        # - "non-git": fallback when built from tarball/zip without .git directory
+
+        # The OTA update script compares this against the commit SHA
+        # associated with the latest GitHub Release tag.
         environment.etc."dartkitos-version" = {
-          text = cfg.version;
+          text =
+            if self ? rev
+            then self.rev
+            else if self ? dirtyRev
+            then self.dirtyRev
+            else "non-git";
+
           mode = "0444";
         };
 
