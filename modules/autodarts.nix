@@ -104,6 +104,9 @@
         };
       };
 
+      # Open autodarts web ports
+      networking.firewall.allowedTCPPorts = [3180 3181];
+
       # Make the autodarts package available system-wide
       environment.systemPackages = [autodarts];
     };
