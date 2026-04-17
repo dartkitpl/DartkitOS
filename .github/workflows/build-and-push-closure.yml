@@ -1,4 +1,4 @@
-name: Build and Push Closure
+name: Build and Push Closures
 
 on:
   workflow_call:
@@ -7,8 +7,8 @@ on:
         description: Git ref to check out
         required: true
         type: string
-      flake_target:
-        description: Flake target to build, for example .#dev or .#default
+      config_type:
+        description: Configuration type suffix to build, for example dev or prod
         required: true
         type: string
       build_label:
@@ -26,25 +26,62 @@ on:
         description: Tailscale OAuth secret
         required: true
     outputs:
-      closure_size:
-        description: Closure size in bytes
-        value: ${{ jobs.build.outputs.closure_size }}
-      store_path:
-        description: Built store path
-        value: ${{ jobs.build.outputs.store_path }}
+      built_configs:
+        description: JSON array of concrete configuration names built by this workflow
+        value: ${{ jobs.discover.outputs.configs_json }}
+      config_count:
+        description: Number of concrete configurations built by this workflow
+        value: ${{ jobs.discover.outputs.config_count }}
 
 jobs:
-  build:
-    name: Build and push closure
+  discover:
+    name: Discover matching configs
     runs-on: ubuntu-latest
+    outputs:
+      configs_json: ${{ steps.discover.outputs.configs_json }}
+      config_count: ${{ steps.discover.outputs.config_count }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Discover concrete configs
+        id: discover
+        run: |
+          all_configs="$(nix eval --json .#nixosConfigurations --apply builtins.attrNames --accept-flake-config)"
+          configs_json="$(jq -c --arg suffix "-${{ inputs.config_type }}" '[.[] | select(endswith($suffix))] | sort' <<<"$all_configs")"
+          config_count="$(jq 'length' <<<"$configs_json")"
+
+          if [[ "$config_count" -eq 0 ]]; then
+            echo "::error::No nixosConfigurations matched suffix -${{ inputs.config_type }}"
+            exit 1
+          fi
+
+          configs_inline="$(jq -r 'join(", ")' <<<"$configs_json")"
+          echo "configs_json=$configs_json" >> "$GITHUB_OUTPUT"
+          echo "config_count=$config_count" >> "$GITHUB_OUTPUT"
+
+          echo "### ${{ inputs.build_label }} configs" >> "$GITHUB_STEP_SUMMARY"
+          echo "$configs_inline" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build and push ${{ matrix.config_name }}
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config_name: ${{ fromJson(needs.discover.outputs.configs_json) }}
     # Run all shell steps inside the flake-pinned CI devshell so tools like
     # attic-client come from this repo's locked nixpkgs input.
     defaults:
       run:
         shell: nix develop --accept-flake-config .#ci --command bash -euo pipefail {0}
-    outputs:
-      closure_size: ${{ steps.meta.outputs.closure_size }}
-      store_path: ${{ steps.build.outputs.store_path }}
 
     steps:
       - name: Checkout repository
@@ -91,16 +128,15 @@ jobs:
       - name: Build closure
         id: build
         run: |
-          nix build "${{ inputs.flake_target }}" \
+          nix build ".#${{ matrix.config_name }}" \
             --print-build-logs \
             --accept-flake-config \
             --option system aarch64-linux \
             --extra-platforms aarch64-linux
 
           store_path="$(readlink -f ./result)"
-          echo "store_path=$store_path" >> "$GITHUB_OUTPUT"
           echo "Built: $store_path"
-          echo "### ${{ inputs.build_label }} build output" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${{ inputs.build_label }} build output: ${{ matrix.config_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "$store_path" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -120,5 +156,4 @@ jobs:
         id: meta
         run: |
           closure_size="$(nix path-info -S ./result 2>/dev/null | awk '{print $2}' || echo "unknown")"
-          echo "closure_size=$closure_size" >> "$GITHUB_OUTPUT"
-          echo "**${{ inputs.build_label }} closure size:** $closure_size bytes" >> "$GITHUB_STEP_SUMMARY"
+          echo "**${{ inputs.build_label }} closure size for ${{ matrix.config_name }}:** $closure_size bytes" >> "$GITHUB_STEP_SUMMARY"

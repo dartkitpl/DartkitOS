@@ -4,7 +4,7 @@
   ...
 }: let
   system = "aarch64-linux";
-  configName = "rpi4-prod";
+  configName = "rpi5-prod";
 in {
   flake.nixosConfigurations.${configName} = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
@@ -15,7 +15,7 @@ in {
     };
 
     modules = [
-      self.nixosModules.rpi4
+      self.nixosModules.rpi4 # Yes I know but this is just testing
       self.nixosModules.dartkitosBase
 
       {

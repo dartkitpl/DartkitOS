@@ -4,7 +4,7 @@
   ...
 }: let
   system = "aarch64-linux";
-  configName = "rpi4-dev";
+  configName = "rpi5-dev";
 in {
   flake.nixosConfigurations.${configName} = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
@@ -15,7 +15,7 @@ in {
     };
 
     modules = [
-      self.nixosModules.rpi4
+      self.nixosModules.rpi4 # Will change later, now testing pipeline with multiple configs per env
       self.nixosModules.dartkitosBase
 
       {
