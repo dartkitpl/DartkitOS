@@ -2,9 +2,9 @@
 # DartkitOS Release Pipeline
 # ============================================================
 # Manually triggered. Runs a two-stage release pipeline:
-#   1. Build and push the dev/staging closure for QA
-#   2. Wait for manual approval, then build and push prod
-#      and publish the GitHub Release
+#   1. Build and push all dev closures for QA
+#   2. Wait for manual approval, then build and push all prod
+#      closures and publish the GitHub Release
 #
 # Version tags are created automatically by a semantic-versioning
 # tagger (conventional commits). This workflow is only run when
@@ -74,16 +74,16 @@ jobs:
         run: |
           nix flake check --no-build --all-systems --accept-flake-config
 
-  # ── Job 2: Build dev closure and push to cache ───────
+  # ── Job 2: Build dev closures and push to cache ───────
   # This stage is intended for QA before production promotion.
   staging:
-    name: Build & push staging
+    name: Build & push dev configs
     needs: check
     uses: ./.github/workflows/build-and-push-closure.yml
     with:
       ref: ${{ github.event.inputs.tag }}
-      flake_target: .#dev
-      build_label: "Staging"
+      config_type: dev
+      build_label: "Development"
     secrets:
       attic_token: ${{ secrets.ATTIC_TOKEN }}
       tailscale_oauth_client_id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
@@ -102,14 +102,14 @@ jobs:
       - name: Wait for approval
         run: echo "Production approval granted."
 
-  # ── Job 4: Build prod closure and push to cache ─────────────
+  # ── Job 4: Build prod closures and push to cache ─────────────
   production:
-    name: Build & push production
+    name: Build & push prod configs
     needs: [staging, approve-production]
     uses: ./.github/workflows/build-and-push-closure.yml
     with:
       ref: ${{ github.event.inputs.tag }}
-      flake_target: .#default
+      config_type: prod
       build_label: "Production"
     secrets:
       attic_token: ${{ secrets.ATTIC_TOKEN }}
@@ -131,13 +131,22 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-          STORE_PATH="${{ needs.production.outputs.store_path }}"
-          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+          STAGING_CONFIGS='${{ needs.staging.outputs.built_configs }}'
+          PRODUCTION_CONFIGS='${{ needs.production.outputs.built_configs }}'
 
-          CLOSURE_SIZE="${{ needs.production.outputs.closure_size }}"
-          echo "closure_size=$CLOSURE_SIZE" >> "$GITHUB_OUTPUT"
-          echo "**Production store path:** \`$STORE_PATH\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Production closure size:** $CLOSURE_SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "staging_configs_inline=$(jq -r 'join(\", \")' <<<"$STAGING_CONFIGS")"
+            echo "production_configs_inline=$(jq -r 'join(\", \")' <<<"$PRODUCTION_CONFIGS")"
+            echo "staging_config_list<<EOF"
+            jq -r '.[] | "- `\(.)`"' <<<"$STAGING_CONFIGS"
+            echo "EOF"
+            echo "production_config_list<<EOF"
+            jq -r '.[] | "- `\(.)`"' <<<"$PRODUCTION_CONFIGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "**Development configs:** $(jq -r 'join(", ")' <<<"$STAGING_CONFIGS")" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Production configs:** $(jq -r 'join(", ")' <<<"$PRODUCTION_CONFIGS")" >> "$GITHUB_STEP_SUMMARY"
 
       # ── Create GitHub Release ────────────────────────────────
       - name: Create GitHub Release
@@ -149,14 +158,17 @@ jobs:
             ## DartkitOS ${{ steps.meta.outputs.tag }}
 
             **Released:** ${{ steps.meta.outputs.date }}
-            **Staging closure size:** ${{ needs.staging.outputs.closure_size }} bytes
-            **Production closure size:** ${{ steps.meta.outputs.closure_size }} bytes
-            **Production store path:** `${{ steps.meta.outputs.store_path }}`
+            **Development configs:** ${{ steps.meta.outputs.staging_configs_inline }}
+            **Production configs:** ${{ steps.meta.outputs.production_configs_inline }}
 
             ### What's included
-            - Staging/QA build from `.#dev`
-            - Production build from `.#default`
-            - All store paths pushed to `cache.dartkit.pl/dartkitos`
+            #### Development / QA builds
+            ${{ steps.meta.outputs.staging_config_list }}
+
+            #### Production builds
+            ${{ steps.meta.outputs.production_config_list }}
+
+            All matching closures were built and pushed to `cache.dartkit.pl/dartkitos`.
 
             ### For consumers
             Consumers with OTA updates enabled will pick up this release

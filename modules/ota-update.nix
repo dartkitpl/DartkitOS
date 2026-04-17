@@ -27,7 +27,6 @@
 
       flakeAttr = lib.mkOption {
         type = lib.types.str;
-        default = "dartkitos";
         description = "Name of the nixosConfigurations attribute to build";
       };
 
