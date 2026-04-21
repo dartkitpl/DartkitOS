@@ -6,16 +6,17 @@
   system = "aarch64-linux";
   configName = "rpi5-dev";
 in {
-  flake.nixosConfigurations.${configName} = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.${configName} = inputs.nixos-raspberrypi.lib.nixosSystem {
+    nixpkgs = inputs.nixpkgs-25-11;
     inherit system;
 
     specialArgs = {
       inherit system;
-      inherit (inputs) nixos-hardware nixpkgs nixpkgs-25-11;
+      inherit (inputs) nixpkgs nixpkgs-25-11;
     };
 
     modules = [
-      self.nixosModules.rpi4 # Will change later, now testing pipeline with multiple configs per env
+      self.nixosModules.rpi5
       self.nixosModules.dartkitosBase
 
       {
@@ -32,6 +33,7 @@ in {
           portalPort = 80;
           wifiInterface = "wlan0";
           activityTimeout = 0; # No timeout - wait forever for user
+          startOnEveryBoot = false;
         };
 
         dartkitos.autodarts.enable = true;
