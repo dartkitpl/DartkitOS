@@ -55,6 +55,9 @@ in {
         };
 
         dartkitos.gpio-handlers.button.enable = true;
+
+        # Open datsu_local_api default port
+        networking.firewall.allowedTCPPorts = [8000];
       }
     ];
   };
