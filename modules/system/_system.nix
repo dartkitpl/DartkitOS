@@ -103,7 +103,6 @@
     # Network tools
     iproute2
     iputils
-    dnsutils
     wirelesstools
     iw
 
