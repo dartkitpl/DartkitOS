@@ -1,10 +1,25 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  lib,
+  ...
+}: {
   # ============================================================
   # Boot configuration
   # ============================================================
   boot = {
     # Filesystem support
     supportedFilesystems = ["vfat" "ext4"];
+
+    kernelParams = lib.mkAfter [
+      "quiet"
+      "loglevel=3"
+      "consoleblank=0"
+      "printk.devkmsg=on"
+    ];
+
+    kernel.sysctl = {
+      "kernel.printk" = "3 3 3 3";
+    };
   };
 
   # ============================================================
