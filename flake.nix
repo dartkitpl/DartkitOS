@@ -7,7 +7,7 @@
     import-tree.url = "github:vic/import-tree";
 
     nixpkgs-25-11.url = "github:NixOS/nixpkgs/nixos-25.11";
-    nixos-hardware.url = "github:NixOS/nixos-hardware";
+    nixos-raspberrypi.url = "github:nvmd/nixos-raspberrypi";
   };
 
   outputs = inputs:

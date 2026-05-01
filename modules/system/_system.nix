@@ -1,10 +1,21 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  lib,
+  ...
+}: {
   # ============================================================
   # Boot configuration
   # ============================================================
   boot = {
     # Filesystem support
     supportedFilesystems = ["vfat" "ext4"];
+
+    kernelParams = lib.mkAfter [
+      "quiet"
+      "loglevel=3"
+      "consoleblank=0"
+      "printk.devkmsg=on"
+    ];
   };
 
   # ============================================================
@@ -69,10 +80,11 @@
   boot.tmp.useTmpfs = true;
   boot.tmp.tmpfsSize = "256M";
 
-  # Reduce swappiness - SD cards are slow
+  # Reduce swappiness and kernel verbosity - SD cards are slow
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
     "vm.vfs_cache_pressure" = 50;
+    "kernel.printk" = "3 3 3 3";
   };
 
   # Enable systemd's built-in watchdog
