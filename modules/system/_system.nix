@@ -91,9 +91,9 @@
   };
 
   # Enable systemd's built-in watchdog
-  systemd.watchdog = {
-    runtimeTime = "30s"; # Reboot if systemd hangs for 30s
-    rebootTime = "3m"; # Force reset if reboot takes more than 3 minutes
+  systemd.settings.Manager = {
+    RuntimeWatchdogSec = 30; # Reboot if systemd hangs for 30s
+    RebootWatchdogSec = 180; # Force reset if reboot takes more than 3 minutes
   };
 
   # ============================================================
