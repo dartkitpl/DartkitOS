@@ -6,12 +6,13 @@
   system = "aarch64-linux";
   configName = "rpi4-prod";
 in {
-  flake.nixosConfigurations.${configName} = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.${configName} = inputs.nixos-raspberrypi.lib.nixosSystem {
+    nixpkgs = inputs.nixpkgs-25-11;
     inherit system;
 
     specialArgs = {
       inherit system;
-      inherit (inputs) nixos-hardware nixpkgs nixpkgs-25-11;
+      inherit (inputs) nixpkgs nixpkgs-25-11;
     };
 
     modules = [
