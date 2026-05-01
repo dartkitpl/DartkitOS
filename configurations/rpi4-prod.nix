@@ -7,12 +7,12 @@
   configName = "rpi4-prod";
 in {
   flake.nixosConfigurations.${configName} = inputs.nixos-raspberrypi.lib.nixosSystem {
-    nixpkgs = inputs.nixpkgs-25-11;
+    nixpkgs = inputs.nixpkgs;
     inherit system;
 
     specialArgs = {
       inherit system;
-      inherit (inputs) nixpkgs nixpkgs-25-11;
+      inherit (inputs) nixpkgs;
     };
 
     modules = [

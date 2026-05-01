@@ -1,15 +1,13 @@
 {
-  perSystem = {pkgs, ...}: let
-    pkgs25 = pkgs.nixpkgs25;
-  in {
+  perSystem = {pkgs, ...}: {
     devShells.ci = pkgs.mkShell {
       packages = with pkgs; [
         attic-client
       ];
     };
 
-    devShells.button-handler = pkgs25.mkShell {
-      buildInputs = with pkgs25; [
+    devShells.button-handler = pkgs.mkShell {
+      buildInputs = with pkgs; [
         cargo
         rustc
         rustfmt
