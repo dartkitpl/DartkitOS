@@ -45,9 +45,12 @@ in {
         dartkitos.ota-update = {
           enable = true;
           githubRepo = "dartkitpl/DartkitOS"; # default
-          interval = "*:0/15"; # every 15 min (default)
-          randomDelaySec = 120; # stagger fleet (default)
           flakeAttr = configName;
+          automatic = {
+            enable = true;
+            interval = "*:0/15"; # every 15 min (default)
+            randomDelaySec = 120; # stagger fleet (default)
+          };
         };
 
         dartkitos.gpio-handlers.button.enable = true;

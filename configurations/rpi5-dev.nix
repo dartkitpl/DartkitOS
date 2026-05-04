@@ -38,8 +38,9 @@ in {
         dartkitos.autodarts.enable = true;
 
         dartkitos.ota-update = {
-          enable = false;
+          enable = true;
           flakeAttr = configName;
+          automatic.enable = false;
         };
 
         dartkitos.gpio-handlers.button.enable = true;
