@@ -1,8 +1,11 @@
-{getSystem, ...}: {
+{
+  self,
+  getSystem,
+  ...
+}: {
   flake.nixosModules.otaUpdate = {
     config,
     lib,
-    dartkitosVersion,
     system,
     ...
   }: let
@@ -14,7 +17,7 @@
     # Module options
     # ============================================================
     options.dartkitos.ota-update = {
-      enable = lib.mkEnableOption "DartkitOS automatic OTA updates";
+      enable = lib.mkEnableOption "DartkitOS OTA update script";
 
       githubRepo = lib.mkOption {
         type = lib.types.str;
@@ -23,39 +26,34 @@
       };
 
       flakeAttr = lib.mkOption {
-        type = lib.types.str;
-        default = "dartkitos";
+        type = lib.types.nullOr lib.types.str;
+        default = null;
         description = "Name of the nixosConfigurations attribute to build";
       };
 
-      interval = lib.mkOption {
-        type = lib.types.str;
-        default = "*:0/15";
-        description = ''
-          systemd calendar expression for how often to check for updates.
-          Default: every 15 minutes.  Examples:
-            "*:0/15"    — every 15 minutes
-            "hourly"    — once per hour
-            "*:0/5"     — every 5 minutes (aggressive, for testing)
-        '';
-      };
+      automatic = {
+        enable = lib.mkEnableOption "automatic DartkitOS OTA update checks";
 
-      randomDelaySec = lib.mkOption {
-        type = lib.types.int;
-        default = 120;
-        description = ''
-          Random delay in seconds added to each timer tick.
-          Prevents all consumers from hitting GitHub/cache simultaneously.
-        '';
-      };
+        interval = lib.mkOption {
+          type = lib.types.str;
+          default = "*:0/15";
+          description = ''
+            systemd calendar expression for how often to check for updates.
+            Default: every 15 minutes.  Examples:
+              "*:0/15"    — every 15 minutes
+              "hourly"    — once per hour
+              "*:0/5"     — every 5 minutes (aggressive, for testing)
+          '';
+        };
 
-      version = lib.mkOption {
-        type = lib.types.str;
-        default = dartkitosVersion;
-        description = ''
-          The current version string written to /etc/dartkitos-version.
-          This is normally set automatically by the flake via specialArgs.
-        '';
+        randomDelaySec = lib.mkOption {
+          type = lib.types.int;
+          default = 120;
+          description = ''
+            Random delay in seconds added to each timer tick.
+            Prevents all consumers from hitting GitHub/cache simultaneously.
+          '';
+        };
       };
     };
 
@@ -63,10 +61,31 @@
     # Module implementation
     # ============================================================
     config = lib.mkMerge [
-      {
+      (lib.mkIf cfg.enable {
+        assertions = [
+          {
+            assertion = cfg.flakeAttr != null;
+            message = "dartkitos.ota-update.flakeAttr must be set when dartkitos.ota-update.enable is true.";
+          }
+        ];
+
         # ── Stamp the version file at build time ─────────────────────
+
+        # Derive version from the flake's source info.
+        # - self.rev: full commit SHA from a clean git checkout or github: flake ref
+        # - self.dirtyRev: commit SHA + "-dirty" when there are uncommitted changes
+        # - "non-git": fallback when built from tarball/zip without .git directory
+
+        # The OTA update script compares this against the commit SHA
+        # associated with the latest GitHub Release tag.
         environment.etc."dartkitos-version" = {
-          text = cfg.version;
+          text =
+            if self ? rev
+            then self.rev
+            else if self ? dirtyRev
+            then self.dirtyRev
+            else "non-git";
+
           mode = "0444";
         };
 
@@ -77,8 +96,7 @@
         environment.sessionVariables = {
           DARTKITOS_FLAKE_ATTR = cfg.flakeAttr;
         };
-      }
-      (lib.mkIf cfg.enable {
+
         # ── Systemd service: the actual update job ───────────────────
         systemd.services.dartkitos-update = {
           description = "DartkitOS OTA update check";
@@ -121,6 +139,14 @@
             RestartSec = "10min";
           };
         };
+      })
+      (lib.mkIf cfg.automatic.enable {
+        assertions = [
+          {
+            assertion = cfg.enable;
+            message = "dartkitos.ota-update.enable must be true when dartkitos.ota-update.automatic.enable is true.";
+          }
+        ];
 
         # ── Systemd timer: periodic trigger ──────────────────────────
         systemd.timers.dartkitos-update = {
@@ -128,9 +154,9 @@
           wantedBy = ["timers.target"];
 
           timerConfig = {
-            OnCalendar = cfg.interval;
+            OnCalendar = cfg.automatic.interval;
             # Spread out requests from the fleet
-            RandomizedDelaySec = cfg.randomDelaySec;
+            RandomizedDelaySec = cfg.automatic.randomDelaySec;
             # Run missed checks after sleep/downtime
             Persistent = true;
             # Also run once shortly after boot (give network time to come up)

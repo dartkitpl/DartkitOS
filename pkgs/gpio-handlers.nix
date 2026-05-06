@@ -5,7 +5,7 @@
     ...
   }: {
     packages = pkgs.lib.optionalAttrs (system == "aarch64-linux") {
-      gpio-handlers = pkgs.nixpkgs25.callPackage ({
+      gpio-handlers = pkgs.callPackage ({
       rustPlatform,
       lib,
       libgpiod,

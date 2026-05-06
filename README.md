@@ -1,6 +1,6 @@
 # DartkitOS
 
-NixOS-based Raspberry Pi 4 image for [Dartkit Boxes](https://dartkit.pl) with Wi-Fi captive portal setup and automatic OTA updates.
+NixOS-based Raspberry Pi images for [Dartkit Boxes](https://dartkit.pl) with Wi-Fi captive portal setup and automatic OTA updates.
 
 ## Features
 
@@ -32,10 +32,12 @@ git checkout vX.Y.Z
 ### Step 2: Build the SD image
 
 ```bash
-nix build .#sdImage
+nix build .#sd-rpi4-prod
 ```
 
-> **Note:** You must have QEMU/binfmt configured if building on x86_64-linux, or a Linux builder if building on aarch64-darwin (Mac).
+> **Note:** Choose the package that matches your hardware and environment. Common targets are `.#sd-rpi4-prod`, `.#sd-rpi5-prod`, `.#sd-rpi4-dev`, and `.#sd-rpi5-dev`.
+>
+> You must have QEMU/binfmt configured if building on x86_64-linux, or a Linux builder if building on aarch64-darwin (Mac).
 
 ### Step 3: Flash the SD card
 
@@ -50,7 +52,7 @@ lsblk
 Decompress and flash the image (replace `/dev/sdX` with your SD card device):
 
 ```bash
-zstd -d ./result/sd-image/dartkitos-rpi4*.zst -c | sudo dd of=/dev/sdX bs=4M status=progress
+zstd -d ./result/sd-image/*.zst -c | sudo dd of=/dev/sdX bs=4M status=progress
 ```
 
 Ensure all data is written:
@@ -90,7 +92,7 @@ Devices check for updates every 15 minutes by default. The update flow:
 1. Query GitHub Releases API for latest tag
 2. Resolve tag to commit SHA
 3. Compare with `/etc/dartkitos-version`
-4. If different, run `nixos-rebuild switch --flake github:dartkitpl/DartkitOS/<tag>`
+4. If different, run `nixos-rebuild switch --flake github:dartkitpl/DartkitOS/<tag>#<config-name>`
 5. All packages are fetched from the binary cache (no local builds)
 6. Reboot if kernel changed
 
@@ -121,17 +123,19 @@ Check the current version:
 dartkitos-update --version
 ```
 
-Rebuild with the **development** configuration (eg. while testing changes locally):
+Rebuild with the **development** configuration matching your hardware (eg. while testing changes locally):
 
 ```bash
 IP="192.168.1.X"  # replace with device IP
-nixos-rebuild switch --flake .#dev --build-host localhost --target-host dartkit@$IP --use-remote-sudo
+nixos-rebuild switch --flake .#rpi4-dev --build-host localhost --target-host dartkit@$IP --use-remote-sudo
 ```
 
 > [!NOTE]
-> The `.#dev` configuration is tailored for development: it enables SSH access with password authentication (in addition to key-based auth), disables OTA updates, and uses more permissive settings (eg. persistent journald storage and non-zero local build jobs). The production `.#dartkitos` configuration keeps OTA updates enabled and is more locked down.
+> Replace `rpi4-dev` with the appropriate configuration for your device (`nix flake show .` to list all available configurations)
 >
-> To get SSH key-based access in dev, add your public key to `dartkitos.dev-ssh-keys` in `configurations/dev.nix`, for example:
+> The `*-dev` configurations are tailored for development: they enable SSH access with password authentication (in addition to key-based auth), disable OTA updates, and use more permissive settings (eg. persistent journald storage and non-zero local build jobs). The `*-prod` configurations keep OTA updates enabled and are more locked down.
+>
+> To get SSH key-based access in dev, add your public key to `dartkitos.dev-ssh-keys` in `configurations/rpi4-dev.nix` and `configurations/rpi5-dev.nix`, for example:
 >
 > ```nix
 > dartkitos.dev-ssh-keys = [

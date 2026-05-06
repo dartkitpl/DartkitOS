@@ -4,31 +4,19 @@
   ...
 }: let
   system = "aarch64-linux";
-  configName = "dev";
+  configName = "rpi4-dev";
 in {
-  flake.nixosConfigurations.${configName} = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.${configName} = inputs.nixos-raspberrypi.lib.nixosSystem {
+    nixpkgs = inputs.nixpkgs;
     inherit system;
 
     specialArgs = {
       inherit system;
-      inherit (inputs) nixos-hardware nixpkgs nixpkgs-25-11;
-
-      # Derive version from the flake's source info.
-      # - self.rev: full commit SHA from a clean git checkout or github: flake ref
-      # - self.dirtyRev: commit SHA + "-dirty" when there are uncommitted changes
-      # - "non-git": fallback when built from tarball/zip without .git directory
-
-      # The OTA update script compares this against the commit SHA
-      # associated with the latest GitHub Release tag.
-      dartkitosVersion =
-        if self ? rev
-        then self.rev
-        else if self ? dirtyRev
-        then self.dirtyRev
-        else "non-git";
+      inherit (inputs) nixpkgs;
     };
 
     modules = [
+      self.nixosModules.rpi4
       self.nixosModules.dartkitosBase
 
       {
@@ -50,8 +38,9 @@ in {
         dartkitos.autodarts.enable = true;
 
         dartkitos.ota-update = {
-          enable = false;
-          flakeAttr = "dev";
+          enable = true;
+          flakeAttr = configName;
+          automatic.enable = false;
         };
 
         dartkitos.gpio-handlers.button.enable = true;

@@ -1,60 +1,21 @@
 {
-  nixos-hardware,
   pkgs,
+  lib,
   ...
 }: {
-  imports = [
-    nixos-hardware.nixosModules.raspberry-pi-4
-  ];
-
   # ============================================================
-  # Boot configuration for Raspberry Pi 4
+  # Boot configuration
   # ============================================================
   boot = {
-    # Use the extlinux bootloader (standard for Pi SD images)
-    loader = {
-      grub.enable = false;
-      generic-extlinux-compatible.enable = true;
-    };
-
-    # Kernel configuration
-    kernelParams = [
-      # Needed for headless operation - don't wait for graphics
-      "console=ttyS1,115200n8"
-      "console=tty0"
-      # Reduce boot verbosity for production
-      "quiet"
-      "loglevel=3"
-      # Suppress kernel messages to console (but keep in dmesg/journal)
-      "consoleblank=0"
-      "printk.devkmsg=on"
-    ];
-
-    # Set console log level to suppress driver messages
-    kernel.sysctl = {
-      "kernel.printk" = "3 3 3 3"; # errors only to console
-    };
-
     # Filesystem support
     supportedFilesystems = ["vfat" "ext4"];
 
-    # Enable hardware watchdog for automatic recovery from hangs
-    kernelModules = ["bcm2835_wdt"];
-  };
-
-  # ============================================================
-  # Hardware configuration
-  # ============================================================
-  hardware = {
-    # Enable GPU firmware for headless operation
-    raspberry-pi."4" = {
-      apply-overlays-dtmerge.enable = true;
-      fkms-3d.enable = false; # Headless, no desktop
-    };
-
-    # Enable firmware for Wi-Fi and Bluetooth
-    enableRedistributableFirmware = true;
-    firmware = [pkgs.raspberrypiWirelessFirmware];
+    kernelParams = lib.mkAfter [
+      "quiet"
+      "loglevel=3"
+      "consoleblank=0"
+      "printk.devkmsg=on"
+    ];
   };
 
   # ============================================================
@@ -103,7 +64,6 @@
     # Network tools
     iproute2
     iputils
-    dnsutils
     wirelesstools
     iw
 
@@ -111,10 +71,6 @@
     usbutils
     pciutils
     lsof
-
-    # For GPIO/hardware access
-    libraspberrypi
-    raspberrypi-eeprom
   ];
 
   # ============================================================
@@ -124,16 +80,17 @@
   boot.tmp.useTmpfs = true;
   boot.tmp.tmpfsSize = "256M";
 
-  # Reduce swappiness - SD cards are slow
+  # Reduce swappiness and kernel verbosity - SD cards are slow
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
     "vm.vfs_cache_pressure" = 50;
+    "kernel.printk" = "3 3 3 3";
   };
 
   # Enable systemd's built-in watchdog
-  systemd.watchdog = {
-    runtimeTime = "30s"; # Reboot if systemd hangs for 30s
-    rebootTime = "3m"; # Force reset if reboot takes more than 3 minutes
+  systemd.settings.Manager = {
+    RuntimeWatchdogSec = 30; # Reboot if systemd hangs for 30s
+    RebootWatchdogSec = 180; # Force reset if reboot takes more than 3 minutes
   };
 
   # ============================================================
